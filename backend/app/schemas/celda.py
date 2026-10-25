@@ -32,8 +32,15 @@ class CeldaRespuesta(CeldaCrear):
     id: int
 
 
+class CeldaConEstado(CeldaRespuesta):
+    estado: str
+
+
+
 class CeldasPagina(BaseModel):
-    items: list[CeldaRespuesta]
+    items: list[CeldaConEstado]
     total: int
     offset: int
     limit: int
+    disponibles: int
+    ocupadas: int

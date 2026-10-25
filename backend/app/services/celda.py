@@ -53,11 +53,55 @@ def create_cell(session: Session, data: CeldaCrear) -> Celda:
     return cell
 
 
+
 @database_operation
 def list_cells(session: Session, offset: int, limit: int) -> dict:
-    total = session.scalar(select(func.count()).select_from(Celda))
-    items = list(session.scalars(select(Celda).order_by(Celda.id).offset(offset).limit(limit)))
-    return {"items": items, "total": total, "offset": offset, "limit": limit}
+    ocupada = (
+        select(Estancia.id)
+        .where(
+            Estancia.celda_id == Celda.id,
+            Estancia.salida.is_(None),
+        )
+        .exists()
+    )
+
+    total = session.scalar(select(func.count()).select_from(Celda)) or 0
+
+    disponibles = session.scalar(
+        select(func.count())
+        .select_from(Celda)
+        .where(~ocupada)
+    ) or 0
+
+    ocupadas = total - disponibles
+
+    items = list(
+        session.execute(
+            select(Celda, ocupada.label("ocupada"))
+            .order_by(Celda.id)
+            .offset(offset)
+            .limit(limit)
+        ).all()
+    )
+
+    celdas = [
+        {
+            "id": celda.id,
+            "codigo": celda.codigo,
+            "tipo": celda.tipo,
+            "estado": "Ocupada" if esta_ocupada else "Disponible",
+        }
+        for celda, esta_ocupada in items
+    ]
+
+    return {
+        "items": celdas,
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "disponibles": disponibles,
+        "ocupadas": ocupadas,
+    }
 
 
 @database_operation

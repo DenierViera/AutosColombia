@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Path, Query, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_session
-from app.schemas.celda import CeldaActualizar, CeldaCrear, CeldaRespuesta, CeldasPagina
+from app.schemas.celda import (CeldaActualizar,CeldaCrear,CeldaConEstado,CeldaRespuesta,CeldasPagina,)
 from app.services import celda as service
 
 router = APIRouter(prefix="/celdas", tags=["Celdas"])

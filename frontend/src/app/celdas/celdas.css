@@ -231,3 +231,89 @@ thead th {
     padding-top: 28px;
   }
 }
+
+/*Estados de celda*/
+
+/* Resumen de ocupación de celdas */
+.occupancy-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1.25rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.summary-label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #4b5563;
+}
+
+.summary-value {
+  font-size: 2rem;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.summary-card.available {
+  border-left: 4px solid #16a34a;
+}
+
+.summary-card.available .summary-value {
+  color: #15803d;
+}
+
+.summary-card.occupied {
+  border-left: 4px solid #dc2626;
+}
+
+.summary-card.occupied .summary-value {
+  color: #dc2626;
+}
+
+/* Indicadores de estado */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.status-available {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.status-occupied {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+/* Adaptación a pantallas pequeñas */
+@media (max-width: 600px) {
+  .occupancy-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-card {
+    padding: 1rem;
+  }
+
+  .summary-value {
+    font-size: 1.75rem;
+  }
+}
+

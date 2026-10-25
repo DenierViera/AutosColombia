@@ -69,6 +69,17 @@
     </section>
   }
   <section class="panel list" aria-label="Listado de celdas" [attr.aria-busy]="loading()">
+    <div class="occupancy-summary" aria-label="Resumen de ocupación">
+      <article class="summary-card available">
+        <span class="summary-label">Celdas disponibles</span>
+        <strong class="summary-value">{{ disponibles() }}</strong>
+      </article>
+
+      <article class="summary-card occupied">
+        <span class="summary-label">Celdas ocupadas</span>
+        <strong class="summary-value">{{ ocupadas() }}</strong>
+      </article>
+    </div>
     <div class="list-heading">
       <h2>
         Celdas registradas <span class="count">{{ total() }}</span>
@@ -94,6 +105,7 @@
             <tr>
               <th scope="col">Código</th>
               <th scope="col">Tipo</th>
+              <th scope="col">Estado</th>
               <th scope="col">Acciones</th>
             </tr>
           </thead>
@@ -102,6 +114,15 @@
               <tr>
                 <th scope="row">{{ cell.codigo }}</th>
                 <td>{{ cell.tipo }}</td>
+                <td>
+                  <span
+                    class="status-badge"
+                    [class.status-available]="cell.estado === 'Disponible'"
+                    [class.status-occupied]="cell.estado === 'Ocupada'"
+                  >
+                    {{ cell.estado }}
+                  </span>
+                </td>
                 <td class="row-actions">
                   <button
                     type="button"

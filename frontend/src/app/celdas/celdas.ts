@@ -3,7 +3,7 @@ import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, ValidatorFn } from '@angular/forms';
 import { CeldasService } from '../services/celdas.service';
-import { Celda, CeldaCrear } from '../models/celda';
+import { Celda, CeldaConEstado, CeldaCrear } from '../models/celda';
 import { ErrorApi } from '../models/vehiculo';
 
 const nonBlank: ValidatorFn = (control) =>
@@ -28,8 +28,10 @@ export class Celdas {
     codigo: this.fb.nonNullable.control('', nonBlank),
     tipo: this.fb.nonNullable.control('', nonBlank),
   });
-  readonly items = signal<Celda[]>([]);
+  readonly items = signal<CeldaConEstado[]>([]);
   readonly total = signal(0);
+  readonly disponibles = signal(0);
+  readonly ocupadas = signal(0);
   readonly offset = signal(0);
   readonly limit = 10;
   readonly loading = signal(false);
@@ -64,6 +66,8 @@ export class Celdas {
           }
           this.items.set(data.items);
           this.total.set(data.total);
+          this.disponibles.set(data.disponibles);
+          this.ocupadas.set(data.ocupadas);
           this.offset.set(offset);
         },
         error: (error) => {
