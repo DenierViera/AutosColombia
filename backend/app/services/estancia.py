@@ -11,7 +11,7 @@ from app.schemas.estancia import (
     EntradaCrear, SalidaCrear, EstanciaRespuesta, EstanciaAbiertaRespuesta,
     EstadoVehiculoRespuesta,
 )
-from app.schemas.vehiculo import VehiculoRespuesta
+from app.schemas.vehiculo import VehiculoCrear, VehiculoRespuesta
 
 
 class EstanciaError(Exception):
@@ -83,6 +83,57 @@ class ServicioEstancia:
         self.session.add(estancia)
         # Los índices únicos deciden también cuando dos solicitudes superan las consultas previas.
         self.session.flush()
+        return EstanciaRespuesta.model_validate(estancia)
+
+    @transaccion
+    def registrar_vehiculo_y_entrada(
+        self,
+        vehiculo_data: VehiculoCrear,
+        celda_id: int,
+        operador_id: int,
+    ) -> EstanciaRespuesta:
+        if self.session.scalar(
+            select(Vehiculo.id).where(Vehiculo.placa == vehiculo_data.placa)
+        ) is not None:
+            raise EstanciaError(409, "Ya existe un vehículo con esa placa.")
+
+        vehiculo = Vehiculo(**vehiculo_data.model_dump())
+        self.session.add(vehiculo)
+        self.session.flush()
+
+        celda = self.session.get(Celda, celda_id)
+        if celda is None:
+            raise EstanciaError(404, "Celda no encontrada.")
+
+        tipo_celda_esperado = (
+            "Moto" if vehiculo.tipo == "MOTO" else "Automovil"
+        )
+
+        if celda.tipo != tipo_celda_esperado:
+            raise EstanciaError(
+                422,
+                "La celda seleccionada no es compatible con el tipo de vehículo.",
+            )
+
+        operador = self._operador(operador_id)
+
+        if self.session.scalar(
+            select(Estancia.id).where(
+                Estancia.celda_id == celda.id,
+                Estancia.salida.is_(None),
+            )
+        ) is not None:
+            raise EstanciaError(409, "La celda está ocupada.")
+
+        estancia = Estancia(
+            vehiculo_id=vehiculo.id,
+            celda_id=celda.id,
+            operador_entrada_id=operador.id,
+            entrada=datetime.now(timezone.utc),
+        )
+        self.session.add(estancia)
+        self.session.flush()
+
         return EstanciaRespuesta.model_validate(estancia)
 
     @transaccion

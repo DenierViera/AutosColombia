@@ -34,5 +34,31 @@ Se implementó una mejora en el módulo de administración de celdas para facili
 
 **Consideración técnica:** el estado se calcula a partir de las estancias registradas; no se almacena como un campo independiente en la tabla de celdas.
 
+## 4. Registro automático de vehículos nuevos desde Control de acceso
 
+### Descripción de la mejora
 
+Se implementó un flujo que permite registrar un vehículo nuevo y confirmar su entrada al parqueadero desde la pantalla **Control de acceso**, sin tener que registrarlo previamente desde el módulo de gestión de vehículos.
+
+### Justificación de la mejora
+
+Esta lógica surgió de la necesidad de facilitar el trabajo del operario y evitar que tuviera que abandonar la pantalla de Control de acceso para registrar previamente cada vehículo nuevo. Al consultar una placa, el sistema puede determinar si el vehículo ya está registrado o si debe solicitar sus datos antes de permitir el ingreso.
+
+De esta manera, el operario puede identificar qué vehículos ya están registrados en el sistema y cuáles todavía no, completar el registro de los nuevos directamente desde el control de acceso y confirmar su entrada en un mismo flujo. Esto agiliza la atención, reduce los pasos manuales y ayuda a mantener actualizada la información de los vehículos y la ocupación de las celdas.
+
+### Funcionamiento
+
+1. El usuario introduce la placa del vehículo.
+2. El sistema consulta si el vehículo ya está registrado.
+3. Si la placa no existe, se abre un modal para ingresar la marca, el modelo, el color y el tipo de vehículo.
+4. El usuario selecciona una celda compatible y el operador responsable de la entrada.
+5. El sistema registra el vehículo y su entrada mediante una única operación.
+6. Tras completar el registro, el vehículo aparece en la gestión de vehículos y la celda queda ocupada.
+
+### Compatibilidad entre vehículos y celdas
+
+- **MOTO:** utiliza celdas de tipo `Moto`.
+- **AUTOMOVIL:** utiliza celdas de tipo `Automovil`.
+- **CAMIONETA:** utiliza las mismas celdas que los automóviles.
+
+La selección de celdas compatibles se actualiza según el tipo de vehículo seleccionado.

@@ -153,4 +153,165 @@
     }
     <p class="hint">Fechas mostradas en America/Bogota. La fecha y hora las asigna el servidor.</p>
   </section>
+
+
+  @if (mostrarModalVehiculo()) {
+    <div class="modal-overlay" role="presentation">
+      <section
+        class="vehicle-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="vehicle-modal-title"
+      >
+        <header class="modal-header">
+          <div>
+            <span class="eyebrow">AUTOS COLOMBIA</span>
+            <h2 id="vehicle-modal-title">Registrar vehículo y dar acceso</h2>
+            <p>La placa no está registrada. Completa los datos para registrar su entrada.</p>
+          </div>
+          <button
+            type="button"
+            class="modal-close"
+            aria-label="Cancelar registro"
+            [disabled]="saving()"
+            (click)="cancelarRegistroVehiculo()"
+          >
+            ×
+          </button>
+        </header>
+
+        <form [formGroup]="formularioVehiculo" (ngSubmit)="registrarVehiculoYEntrada()">
+          <fieldset [disabled]="busy() || catalogLoading() || !!catalogError()">
+            <legend class="sr-only">Datos del vehículo y entrada</legend>
+
+            <div class="form-grid">
+              <div class="field">
+                <label for="modal-plate">Placa</label>
+                <input id="modal-plate" type="text" formControlName="placa" />
+                @if (
+                  formularioVehiculo.controls.placa.touched &&
+                  formularioVehiculo.controls.placa.invalid
+                ) {
+                  <span class="field-error">La placa es obligatoria.</span>
+                }
+              </div>
+
+              <div class="field">
+                <label for="modal-brand">Marca</label>
+                <input id="modal-brand" type="text" formControlName="marca" />
+                @if (
+                  formularioVehiculo.controls.marca.touched &&
+                  formularioVehiculo.controls.marca.invalid
+                ) {
+                  <span class="field-error">La marca es obligatoria.</span>
+                }
+              </div>
+
+              <div class="field">
+                <label for="modal-model">Modelo (año)</label>
+                <input id="modal-model" type="number" formControlName="modelo" />
+                @if (
+                  formularioVehiculo.controls.modelo.touched &&
+                  formularioVehiculo.controls.modelo.invalid
+                ) {
+                  <span class="field-error">Introduce un año entre 1 y 9999.</span>
+                }
+              </div>
+
+              <div class="field">
+                <label for="modal-color">Color</label>
+                <input id="modal-color" type="text" formControlName="color" />
+                @if (
+                  formularioVehiculo.controls.color.touched &&
+                  formularioVehiculo.controls.color.invalid
+                ) {
+                  <span class="field-error">El color es obligatorio.</span>
+                }
+              </div>
+
+              <div class="field">
+                <label for="modal-type">Tipo de vehículo</label>
+                <select id="modal-type" formControlName="tipo">
+                  <option value="">Selecciona un tipo</option>
+                  @for (tipo of tiposVehiculo; track tipo) {
+                    <option [value]="tipo">{{ tipo }}</option>
+                  }
+                </select>
+                @if (
+                  formularioVehiculo.controls.tipo.touched &&
+                  formularioVehiculo.controls.tipo.invalid
+                ) {
+                  <span class="field-error">Selecciona el tipo de vehículo.</span>
+                }
+              </div>
+
+              <div class="field">
+                <label for="modal-cell">Celda disponible</label>
+                <select id="modal-cell" formControlName="celda_id">
+                  <option [ngValue]="null">Selecciona una celda</option>
+                  @for (c of celdasCompatibles(); track c.id) {
+                    <option [ngValue]="c.id">{{ c.codigo }} · {{ c.tipo }}</option>
+                  }
+                </select>
+                @if (
+                  formularioVehiculo.controls.celda_id.touched &&
+                  formularioVehiculo.controls.celda_id.invalid
+                ) {
+                  <span class="field-error">Selecciona una celda compatible.</span>
+                }
+                @if (
+                  formularioVehiculo.controls.tipo.value &&
+                  !celdasCompatibles().length
+                ) {
+                  <span class="field-error">No hay celdas compatibles disponibles.</span>
+                }
+              </div>
+
+              <div class="field">
+                <label for="modal-operator">Operador de entrada</label>
+                <select id="modal-operator" formControlName="operador_id">
+                  <option [ngValue]="null">Selecciona un operador</option>
+                  @for (o of operadores(); track o.id) {
+                    <option [ngValue]="o.id">{{ o.nombre }} · #{{ o.id }}</option>
+                  }
+                </select>
+                @if (
+                  formularioVehiculo.controls.operador_id.touched &&
+                  formularioVehiculo.controls.operador_id.invalid
+                ) {
+                  <span class="field-error">Selecciona un operador.</span>
+                }
+              </div>
+            </div>
+
+            @if (catalogError()) {
+              <p class="notice error" role="alert">{{ catalogError() }}</p>
+            }
+
+            @if (errorRegistroVehiculo()) {
+              <p class="notice error" role="alert">{{ errorRegistroVehiculo() }}</p>
+            }
+
+            <div class="modal-actions">
+              <button
+                type="button"
+                [disabled]="saving()"
+                (click)="cancelarRegistroVehiculo()"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                class="primary"
+                [disabled]="busy() || catalogLoading() || !!catalogError()"
+              >
+                {{ saving() ? 'Registrando…' : 'Registrar y dar acceso' }}
+              </button>
+            </div>
+          </fieldset>
+        </form>
+      </section>
+    </div>
+  }
+
 </section>

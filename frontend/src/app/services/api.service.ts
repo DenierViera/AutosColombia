@@ -26,6 +26,18 @@ export class ApiService {
   create(data: VehiculoCrear) {
     return this.http.post<Vehiculo>(this.vehicles, data).pipe(timeout(15000));
   }
+  registrarVehiculoYEntrada(data: {
+    vehiculo: VehiculoCrear;
+    celda_id: number;
+    operador_id: number;
+  }) {
+    return this.http
+      .post<import('../models/estancia').Estancia>(
+        `${this.base}/estancias/entrada/registrar-vehiculo`,
+        data,
+      )
+      .pipe(timeout(15000));
+  }
   update(id: number, data: VehiculoActualizar) {
     return this.http.patch<Vehiculo>(`${this.vehicles}/${id}`, data).pipe(timeout(15000));
   }

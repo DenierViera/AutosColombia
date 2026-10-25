@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.database import get_session
-from app.schemas.estancia import EntradaCrear, SalidaCrear, EstanciaRespuesta, EstadoVehiculoRespuesta
+from app.schemas.estancia import (EntradaCrear,SalidaCrear,EstanciaRespuesta,EstadoVehiculoRespuesta,VehiculoConEntradaCrear,)
 from app.schemas.vehiculo import Placa
 from app.services.estancia import ServicioEstancia
 
@@ -16,6 +16,20 @@ DatabaseSession = Annotated[Session, Depends(get_session)]
 def entrada(data: EntradaCrear, session: DatabaseSession) -> EstanciaRespuesta:
     return ServicioEstancia(session).entrada(data)
 
+@router.post(
+    "/entrada/registrar-vehiculo",
+    response_model=EstanciaRespuesta,
+    status_code=201,
+)
+def registrar_vehiculo_y_entrada(
+    data: VehiculoConEntradaCrear,
+    session: DatabaseSession,
+) -> EstanciaRespuesta:
+    return ServicioEstancia(session).registrar_vehiculo_y_entrada(
+        vehiculo_data=data.vehiculo,
+        celda_id=data.celda_id,
+        operador_id=data.operador_id,
+    )
 
 @router.post("/salida", response_model=EstanciaRespuesta)
 def salida(data: SalidaCrear, session: DatabaseSession) -> EstanciaRespuesta:

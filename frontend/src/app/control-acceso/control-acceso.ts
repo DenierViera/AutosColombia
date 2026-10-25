@@ -5,7 +5,9 @@ import { FormBuilder, ReactiveFormsModule, ValidatorFn, Validators } from '@angu
 import { forkJoin } from 'rxjs';
 import { Celda } from '../models/celda';
 import { Operador } from '../models/operador';
+import { TIPOS_VEHICULO, TipoVehiculo, VehiculoCrear } from '../models/vehiculo';
 import { EstadoVehiculo } from '../models/estancia';
+import { ApiService } from '../services/api.service';
 import { EstanciasService } from '../services/estancias.service';
 
 const nonBlank: ValidatorFn = (c) =>
@@ -20,6 +22,7 @@ const placa = (value: string) => value.trim().toUpperCase();
 })
 export class ControlAcceso {
   private readonly api = inject(EstanciasService);
+  private readonly vehiculosApi = inject(ApiService);
   private readonly fb = inject(FormBuilder);
   private readonly destroy = inject(DestroyRef);
   private version = 0;
@@ -32,6 +35,38 @@ export class ControlAcceso {
     placa: this.fb.nonNullable.control('', nonBlank),
     operador_id: this.fb.control<number | null>(null, Validators.required),
   });
+  readonly tiposVehiculo = TIPOS_VEHICULO;
+
+  celdasCompatibles(): Celda[] {
+    const tipo = this.formularioVehiculo.controls.tipo.value;
+
+    if (!tipo) return [];
+
+    const tipoCelda = tipo === 'MOTO' ? 'moto' : 'automovil';
+
+    return this.celdas().filter(
+      (celda) =>
+        String(celda.tipo).trim().toLowerCase() === tipoCelda,
+    );
+  }
+  readonly mostrarModalVehiculo = signal(false);
+
+  readonly formularioVehiculo = this.fb.group({
+    placa: this.fb.nonNullable.control('', nonBlank),
+    marca: this.fb.nonNullable.control('', nonBlank),
+    modelo: this.fb.control<number | null>(null, [
+      Validators.required,
+      Validators.min(1),
+      Validators.max(9999),
+      Validators.pattern(/^\d+$/),
+    ]),
+    color: this.fb.nonNullable.control('', nonBlank),
+    tipo: this.fb.nonNullable.control<TipoVehiculo | ''>('', Validators.required),
+    celda_id: this.fb.control<number | null>(null, Validators.required),
+    operador_id: this.fb.control<number | null>(null, Validators.required),
+  });
+
+  readonly errorRegistroVehiculo = signal('');
   readonly celdas = signal<Celda[]>([]);
   readonly operadores = signal<Operador[]>([]);
   readonly catalogLoading = signal(false);
@@ -69,6 +104,9 @@ export class ControlAcceso {
       .subscribe({
         next: (data) => {
           this.celdas.set(data.celdas);
+          //CONSOLE TEMPORALES
+          console.log('Celdas recibidas del backend:', data.celdas);
+          console.log('Tipos de celda:', [...new Set(data.celdas.map((celda) => celda.tipo))]);
           this.operadores.set(data.operadores);
           this.catalogLoading.set(false);
         },
@@ -83,40 +121,66 @@ export class ControlAcceso {
       });
   }
 
+
   registrarEntrada(): void {
     if (this.busy() || this.catalogLoading() || this.catalogError()) return;
+
     this.entrada.markAllAsTouched();
+
     if (this.entrada.invalid) return;
+
     const raw = this.entrada.getRawValue();
     const data = {
       placa: placa(raw.placa),
       celda_id: raw.celda_id!,
       operador_id: raw.operador_id!,
     };
+
     const codigo =
-      this.celdas().find((c) => c.id === data.celda_id)?.codigo ?? String(data.celda_id);
+      this.celdas().find((c) => c.id === data.celda_id)?.codigo ??
+      String(data.celda_id);
+
     this.entrada.controls.placa.setValue(data.placa);
     this.saving.set(true);
     this.errorEntrada.set('');
     this.exitoEntrada.set('');
     this.version++;
     this.estado.set(null);
+
     this.api
-      .entrada(data)
+      .consultar(data.placa)
       .pipe(takeUntilDestroyed(this.destroy))
       .subscribe({
-        next: (result) => {
-          this.saving.set(false);
-          this.exitoEntrada.set(
-            `Entrada registrada: ${data.placa}, celda ${codigo}, ${this.fecha(result.entrada)}.`,
-          );
+        next: () => {
+          this.api
+            .entrada(data)
+            .pipe(takeUntilDestroyed(this.destroy))
+            .subscribe({
+              next: (result) => {
+                this.saving.set(false);
+                this.exitoEntrada.set(
+                  `Entrada registrada: ${data.placa}, celda ${codigo}, ${this.fecha(result.entrada)}.`,
+                );
+              },
+              error: (error) => {
+                this.saving.set(false);
+                this.errorEntrada.set(this.mensaje(error));
+              },
+            });
         },
-        error: (error) => {
+        error: (error: HttpErrorResponse) => {
           this.saving.set(false);
+
+          if (error.status === 404) {
+            this.abrirModalVehiculo(data.placa);
+            return;
+          }
+
           this.errorEntrada.set(this.mensaje(error));
         },
       });
   }
+
 
   buscar(): void {
     if (this.busy()) return;
@@ -138,10 +202,115 @@ export class ControlAcceso {
         },
         error: (error) => {
           this.querying.set(false);
-          if (version === this.version)
-            this.errorConsulta.set(
-              error.status === 404 ? 'Vehículo no registrado.' : this.mensaje(error),
-            );
+
+          if (version === this.version) {
+            if (error.status === 404) {
+              this.abrirModalVehiculo(value);
+            } else {
+              this.errorConsulta.set(this.mensaje(error));
+            }
+          }
+        },
+      });
+  }
+
+  abrirModalVehiculo(placaBuscada: string): void {
+    this.formularioVehiculo.reset({
+      placa: placaBuscada,
+      marca: '',
+      modelo: null,
+      color: '',
+      tipo: '',
+      celda_id: null,
+      operador_id: null,
+    });
+
+    this.errorRegistroVehiculo.set('');
+    this.mostrarModalVehiculo.set(true);
+  }
+
+  cancelarRegistroVehiculo(): void {
+    if (this.saving()) return;
+
+    this.mostrarModalVehiculo.set(false);
+    this.errorRegistroVehiculo.set('');
+    this.formularioVehiculo.reset();
+  }
+
+  registrarVehiculoYEntrada(): void {
+    if (this.busy() || this.catalogLoading() || this.catalogError()) return;
+
+    this.formularioVehiculo.markAllAsTouched();
+
+    if (this.formularioVehiculo.invalid) {
+      this.errorRegistroVehiculo.set(
+        'Revisa los campos señalados antes de registrar el vehículo.',
+      );
+      return;
+    }
+
+    const raw = this.formularioVehiculo.getRawValue();
+
+    const vehiculo: VehiculoCrear = {
+      placa: placa(raw.placa),
+      marca: raw.marca.trim(),
+      modelo: raw.modelo!,
+      color: raw.color.trim(),
+      tipo: raw.tipo as TipoVehiculo,
+    };
+
+    const data = {
+      vehiculo,
+      celda_id: raw.celda_id!,
+      operador_id: raw.operador_id!,
+    };
+
+    const codigo =
+      this.celdas().find((c) => c.id === data.celda_id)?.codigo ??
+      String(data.celda_id);
+
+    this.saving.set(true);
+    this.errorRegistroVehiculo.set('');
+    this.exitoEntrada.set('');
+    this.errorConsulta.set('');
+
+    this.vehiculosApi
+      .registrarVehiculoYEntrada(data)
+      .pipe(takeUntilDestroyed(this.destroy))
+      .subscribe({
+        next: (result) => {
+          this.saving.set(false);
+          this.mostrarModalVehiculo.set(false);
+          this.formularioVehiculo.reset();
+
+          this.exitoEntrada.set(
+            `Vehículo ${vehiculo.placa} registrado y entrada confirmada en la celda ${codigo}, ${this.fecha(result.entrada)}.`,
+          );
+
+          this.consulta.controls.placa.setValue(vehiculo.placa);
+          this.consultarVehiculoRegistrado(vehiculo.placa);
+        },
+        error: (error: HttpErrorResponse) => {
+          this.saving.set(false);
+          this.errorRegistroVehiculo.set(this.mensaje(error));
+        },
+      });
+  }
+
+  consultarVehiculoRegistrado(placaVehiculo: string): void {
+    this.querying.set(true);
+
+    this.api
+      .consultar(placaVehiculo)
+      .pipe(takeUntilDestroyed(this.destroy))
+      .subscribe({
+        next: (result) => {
+          this.querying.set(false);
+          this.estado.set(result);
+        },
+        error: (error) => {
+          this.querying.set(false);
+          this.errorConsulta.set(this.mensaje(error));
         },
       });
   }

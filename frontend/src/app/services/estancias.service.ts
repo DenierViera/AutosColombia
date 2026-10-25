@@ -34,12 +34,13 @@ export class EstanciasService {
       .get<EstadoVehiculo>(`${this.base}/vehiculo/${encodeURIComponent(placa)}`)
       .pipe(timeout(15000));
   }
+
   celdas(): Observable<Celda[]> {
     return this.http
-      .get<Celda[]>
-  (`${inject(API_BASE_URL)}/celdas/disponibles`)
+      .get<Celda[]>(`${this.apiBase}/celdas/disponibles`)
       .pipe(timeout(15000));
   }
+
   operadores(): Observable<Operador[]> {
     return this.todas((offset) => this.operators.list(offset, 100));
   }
