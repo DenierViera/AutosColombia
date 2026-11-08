@@ -63,12 +63,28 @@ class ServicioEstancia:
             raise EstanciaError(404, "Operador no encontrado.")
         return operador
 
+    def _validar_compatibilidad(self, vehiculo: Vehiculo, celda: Celda) -> None:
+        tipos_compatibles = {
+            "MOTO": "Moto",
+            "AUTOMOVIL": "Automovil",
+            "CAMIONETA": "Automovil",
+        }
+
+        tipo_celda_esperado = tipos_compatibles.get(vehiculo.tipo)
+
+        if tipo_celda_esperado is None or celda.tipo != tipo_celda_esperado:
+            raise EstanciaError(
+                422,
+                "La celda seleccionada no es compatible con el tipo de vehículo.",
+            )
+
     @transaccion
     def entrada(self, data: EntradaCrear) -> EstanciaRespuesta:
         vehiculo = self._vehiculo(data.placa)
         celda = self.session.get(Celda, data.celda_id)
         if celda is None:
             raise EstanciaError(404, "Celda no encontrada.")
+        self._validar_compatibilidad(vehiculo, celda)
         operador = self._operador(data.operador_id)
         if self.session.scalar(select(Estancia.id).where(
             Estancia.vehiculo_id == vehiculo.id, Estancia.salida.is_(None)
@@ -105,15 +121,7 @@ class ServicioEstancia:
         if celda is None:
             raise EstanciaError(404, "Celda no encontrada.")
 
-        tipo_celda_esperado = (
-            "Moto" if vehiculo.tipo == "MOTO" else "Automovil"
-        )
-
-        if celda.tipo != tipo_celda_esperado:
-            raise EstanciaError(
-                422,
-                "La celda seleccionada no es compatible con el tipo de vehículo.",
-            )
+        self._validar_compatibilidad(vehiculo, celda)
 
         operador = self._operador(operador_id)
 

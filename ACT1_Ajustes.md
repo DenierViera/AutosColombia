@@ -62,3 +62,6 @@ De esta manera, el operario puede identificar qué vehículos ya están registra
 - **CAMIONETA:** utiliza las mismas celdas que los automóviles.
 
 La selección de celdas compatibles se actualiza según el tipo de vehículo seleccionado.
+
+### CORRECCIONES ---------
+Se implementó la validación de compatibilidad entre vehículos y celdas, mostrando únicamente las celdas disponibles según el tipo de vehículo. También se agregó la validación en el backend para vehículos existentes y nuevos, evitando asignaciones incompatibles.

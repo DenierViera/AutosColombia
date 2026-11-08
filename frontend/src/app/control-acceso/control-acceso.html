@@ -39,6 +39,7 @@
               id="entry-plate"
               formControlName="placa"
               type="text"
+              (blur)="identificarVehiculoEntrada()"
               aria-describedby="entry-plate-error"
             />
             <span id="entry-plate-error" class="field-error">
@@ -51,7 +52,7 @@
             <label for="entry-cell">Celda</label
             ><select id="entry-cell" formControlName="celda_id">
               <option [ngValue]="null">Selecciona una celda</option>
-              @for (c of celdas(); track c.id) {
+              @for (c of celdasEntradaCompatibles(); track c.id) {
                 <option [ngValue]="c.id">{{ c.codigo }} · {{ c.tipo }}</option>
               }
             </select>

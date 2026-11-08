@@ -37,6 +37,20 @@ export class ControlAcceso {
   });
   readonly tiposVehiculo = TIPOS_VEHICULO;
 
+  readonly tipoVehiculoEntrada = signal<TipoVehiculo | null>(null);
+
+  readonly celdasEntradaCompatibles = computed(() => {
+    const tipo = this.tipoVehiculoEntrada();
+
+    if (!tipo) return [];
+
+    const tipoCelda = tipo === 'MOTO' ? 'moto' : 'automovil';
+
+    return this.celdas().filter(
+      (celda) => String(celda.tipo).trim().toLowerCase() === tipoCelda
+    );
+  });
+
   celdasCompatibles(): Celda[] {
     const tipo = this.formularioVehiculo.controls.tipo.value;
 
@@ -121,6 +135,30 @@ export class ControlAcceso {
       });
   }
 
+  identificarVehiculoEntrada(): void {
+    const value = placa(this.entrada.controls.placa.value);
+
+    this.tipoVehiculoEntrada.set(null);
+    this.entrada.controls.celda_id.reset();
+
+    if (!value) return;
+
+    this.api
+      .consultar(value)
+      .pipe(takeUntilDestroyed(this.destroy))
+      .subscribe({
+        next: (result) => {
+          this.tipoVehiculoEntrada.set(result.vehiculo.tipo);
+        },
+        error: (error) => {
+          if (error.status === 404) {
+            this.tipoVehiculoEntrada.set(null);
+          } else {
+            this.errorEntrada.set(this.mensaje(error));
+          }
+        },
+      });
+  }
 
   registrarEntrada(): void {
     if (this.busy() || this.catalogLoading() || this.catalogError()) return;
