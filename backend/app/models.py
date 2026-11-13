@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKey, Identity, Index, Integer, Text, UniqueConstraint, func, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, validates
-
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, ForeignKey, Identity, Index, Integer, Text, UniqueConstraint, func, text
 
 class Base(DeclarativeBase):
     pass
@@ -84,6 +84,42 @@ class Operador(Base):
     @validates("nombre", "telefono")
     def validate_text(self, key: str, value: str) -> str:
         return required_text(value, key)
+
+
+class UsuarioSistema(Base):
+    __tablename__ = "usuario_sistema"
+
+    __table_args__ = (
+        UniqueConstraint("username", name="uq_usuario_sistema_username"),
+        UniqueConstraint("operador_id", name="uq_usuario_sistema_operador"),
+        CheckConstraint(
+            "rol IN ('ADMINISTRADOR', 'OPERADOR')",
+            name="ck_usuario_sistema_rol",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(
+        BigInteger, Identity(always=True), primary_key=True
+    )
+
+    operador_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        ForeignKey(
+            "operador.id",
+            name="fk_usuario_sistema_operador",
+            ondelete="RESTRICT",
+        ),
+        nullable=True,
+    )
+
+    username: Mapped[str] = mapped_column(Text, nullable=False)
+    password_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    rol: Mapped[str] = mapped_column(Text, nullable=False)
+    activo: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("true")
+    )
+
+    operador: Mapped[Operador | None] = relationship()
 
 
 class Estancia(Base):
