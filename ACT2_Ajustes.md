@@ -10,12 +10,12 @@ Para acceder, el usuario debe tener credenciales previamente registradas en el s
 ## CREDENCIALES
 
 Credenciales Admin
-Username: Admin 17
-Password: controler_17_xt
+- Username: Admin 17
+- Password: controler_17_xt
 
 Credenciales Operador
-Username: DenierAndres
-Password: Trabajador1#
+- Username: DenierAndres
+- Password: Trabajador1#
 
 Actualmente existen dos roles:
 
