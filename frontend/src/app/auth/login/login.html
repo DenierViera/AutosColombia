@@ -1,0 +1,81 @@
+
+<div class="login-page">
+  <header class="login-header">
+    <a class="header-brand">
+      <svg viewBox="0 0 48 48" aria-hidden="true">
+        <path d="M7 29l3-12c1-3 3-5 6-5h16c3 0 5 2 6 5l3 12v9h-5v-5H12v5H7z"
+          fill="none" stroke="currentColor" stroke-width="2.8"
+          stroke-linejoin="round"/>
+        <path d="M11 24h26M14 31h5m10 0h5"
+          fill="none" stroke="currentColor" stroke-width="2.8"
+          stroke-linecap="round"/>
+      </svg>
+      <span>Autos<span class="blue">Colombia</span></span>
+    </a>
+  </header>
+
+  <main class="login-main">
+    <section class="login-card">
+      <div class="login-logo">
+        <svg viewBox="0 0 100 75" aria-hidden="true">
+          <path d="M10 48l7-27c2-7 7-11 14-11h38c7 0 12 4 14 11l7 27v17h-12v-9H22v9H10z"
+            fill="none" stroke="currentColor" stroke-width="5"
+            stroke-linejoin="round"/>
+          <path d="M17 37h66M23 49h8m38 0h8"
+            fill="none" stroke="currentColor" stroke-width="5"
+            stroke-linecap="round"/>
+        </svg>
+      </div>
+
+      <h1>Autos <span>Colombia</span></h1>
+      <p class="subtitle">Inicia sesión en el sistema</p>
+
+      <form (ngSubmit)="onSubmit()">
+        <div class="input-group">
+          <span class="field-icon" aria-hidden="true">♙</span>
+          <input
+            type="text"
+            name="username"
+            [(ngModel)]="username"
+            placeholder="Nombre de usuario"
+            autocomplete="username"
+            required
+          />
+        </div>
+
+        <div class="input-group">
+          <span class="field-icon" aria-hidden="true">♙</span>
+          <input
+            [type]="showPassword ? 'text' : 'password'"
+            name="password"
+            [(ngModel)]="password"
+            placeholder="Contraseña"
+            autocomplete="current-password"
+            required
+          />
+          <button
+            type="button"
+            class="visibility-button"
+            (click)="showPassword = !showPassword"
+            [attr.aria-label]="showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+          >
+            {{ showPassword ? 'Ocultar' : 'Ver' }}
+          </button>
+        </div>
+
+        @if (errorMessage) {
+            <p class="login-error">{{ errorMessage }}</p>
+        }
+
+        <button
+          class="login-button"
+          type="submit"
+          [disabled]="loading"
+        >
+
+          {{ loading ? 'Ingresando...' : 'Iniciar sesión' }}
+        </button>
+      </form>
+    </section>
+  </main>
+</div>
