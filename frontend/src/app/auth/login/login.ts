@@ -1,4 +1,5 @@
-import { Component, inject } from '@angular/core';
+
+import { Component, ChangeDetectorRef, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { finalize, timeout } from 'rxjs';
@@ -14,12 +15,20 @@ import { AuthService } from '../../services/auth.service';
 export class Login {
   private authService = inject(AuthService);
   private router = inject(Router);
+  private cdr = inject(ChangeDetectorRef);
 
   username = '';
   password = '';
   showPassword = false;
   loading = false;
   errorMessage = '';
+
+  togglePasswordVisibility(event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+
+    this.showPassword = !this.showPassword;
+  }
 
   onSubmit(): void {
     if (this.loading) return;
@@ -38,12 +47,15 @@ export class Login {
         timeout(15000),
         finalize(() => {
           this.loading = false;
+          this.cdr.detectChanges();
         })
       )
       .subscribe({
         next: (response) => {
           if (!response.access_token || !response.usuario) {
-            this.errorMessage = 'El servidor devolvió una respuesta inválida.';
+            this.errorMessage =
+              'El servidor devolvió una respuesta inválida.';
+            this.cdr.detectChanges();
             return;
           }
 
@@ -55,17 +67,24 @@ export class Login {
             this.router.navigate(['/control-acceso']);
           } else {
             this.errorMessage = 'El usuario no tiene un rol válido.';
+            this.cdr.detectChanges();
           }
         },
         error: (error) => {
           if (error.name === 'TimeoutError') {
-            this.errorMessage = 'El servidor tardó demasiado en responder.';
+            this.errorMessage =
+              'El servidor tardó demasiado en responder.';
           } else if (error.status === 0) {
             this.errorMessage = 'No se pudo conectar con el servidor.';
+          } else if (error.status === 401) {
+            this.errorMessage =
+              'Nombre de usuario o contraseña incorrectos.';
           } else {
             this.errorMessage =
               error.error?.detail || 'No fue posible iniciar sesión.';
           }
+
+          this.cdr.detectChanges();
         },
       });
   }

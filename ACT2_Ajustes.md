@@ -7,7 +7,6 @@ Para acceder, el usuario debe tener credenciales previamente registradas en el s
 
 ### Tipos de usuario
 
-## =====================================
 ## CREDENCIALES
 
 Credenciales Admin
@@ -17,7 +16,6 @@ Password: controler_17_xt
 Credenciales Operador
 Username: DenierAndres
 Password: Trabajador1#
-========================================
 
 Actualmente existen dos roles:
 

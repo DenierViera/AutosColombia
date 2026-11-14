@@ -1,3 +1,4 @@
+
 import logging
 
 from fastapi import APIRouter, Depends
@@ -24,33 +25,27 @@ def login(
     session: Session = Depends(get_session),
 ):
     try:
-        logger.info("LOGIN: buscando usuario")
-
         usuario = session.scalar(
             select(UsuarioSistema).where(
                 UsuarioSistema.username == form_data.username
             )
         )
 
-        logger.info("LOGIN: usuario encontrado")
-
         if not usuario or not verify_password(
             form_data.password, usuario.password_hash
         ):
-            raise AuthError("Usuario o contraseña incorrectos")
+            raise AuthError(
+                "Nombre de usuario o contraseña incorrectos."
+            )
 
         if not usuario.activo:
-            raise AuthError("La cuenta está desactivada")
-
-        logger.info("LOGIN: generando token")
+            raise AuthError("La cuenta está desactivada.")
 
         token = create_access_token({
             "sub": str(usuario.id),
             "username": usuario.username,
             "rol": usuario.rol,
         })
-
-        logger.info("LOGIN: proceso completado")
 
         return {
             "access_token": token,
