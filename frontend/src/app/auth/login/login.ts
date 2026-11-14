@@ -1,4 +1,3 @@
-
 import { Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -48,7 +47,15 @@ export class Login {
             return;
           }
 
-          this.router.navigate(['/control-acceso']);
+          const rol = response.usuario.rol;
+
+          if (rol === 'ADMINISTRADOR') {
+            this.router.navigate(['/gestion/operadores']);
+          } else if (rol === 'OPERADOR') {
+            this.router.navigate(['/control-acceso']);
+          } else {
+            this.errorMessage = 'El usuario no tiene un rol válido.';
+          }
         },
         error: (error) => {
           if (error.name === 'TimeoutError') {

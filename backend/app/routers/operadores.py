@@ -1,20 +1,27 @@
+
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_session
-from app.models import Operador
-from app.schemas.operador import OperadorActualizar, OperadorCrear, OperadorRespuesta, OperadoresPagina
+from app.schemas.operador import (
+    AccesoActualizar,
+    OperadorActualizar,
+    OperadorCrear,
+    OperadorRespuesta,
+    OperadoresPagina,
+)
 from app.services import operador as service
 
 router = APIRouter(prefix="/operadores", tags=["Operadores"])
+
 DatabaseSession = Annotated[Session, Depends(get_session)]
 OperatorId = Annotated[int, Path(ge=1, le=9223372036854775807)]
 
 
 @router.post("", response_model=OperadorRespuesta, status_code=201)
-def create(data: OperadorCrear, session: DatabaseSession) -> Operador:
+def create(data: OperadorCrear, session: DatabaseSession) -> dict:
     return service.create_operator(session, data)
 
 
@@ -28,17 +35,29 @@ def list_all(
 
 
 @router.get("/{id}", response_model=OperadorRespuesta)
-def get_one(id: OperatorId, session: DatabaseSession) -> Operador:
+def get_one(id: OperatorId, session: DatabaseSession) -> dict:
     return service.get_operator(session, id)
 
 
 @router.patch("/{id}", response_model=OperadorRespuesta)
-def update(id: OperatorId, data: OperadorActualizar, session: DatabaseSession) -> Operador:
+def update(
+    id: OperatorId,
+    data: OperadorActualizar,
+    session: DatabaseSession,
+) -> dict:
     return service.update_operator(session, id, data)
+
+
+@router.patch("/{id}/acceso", response_model=OperadorRespuesta)
+def update_access(
+    id: OperatorId,
+    data: AccesoActualizar,
+    session: DatabaseSession,
+) -> dict:
+    return service.update_operator_access(session, id, data.activo)
 
 
 @router.delete("/{id}", status_code=204)
 def delete(id: OperatorId, session: DatabaseSession) -> Response:
     service.delete_operator(session, id)
     return Response(status_code=204)
-

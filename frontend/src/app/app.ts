@@ -1,8 +1,15 @@
 
 import { Component, DestroyRef, inject } from '@angular/core';
-import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import {
+  NavigationEnd,
+  Router,
+  RouterLink,
+  RouterLinkActive,
+  RouterOutlet,
+} from '@angular/router';
 import { filter } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { AuthService } from './services/auth.service';
 
 @Component({
   selector: 'app-root',
@@ -13,6 +20,8 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 export class App {
   private router = inject(Router);
   private destroyRef = inject(DestroyRef);
+
+  authService = inject(AuthService);
 
   isLoginPage = this.router.url.startsWith('/login');
 

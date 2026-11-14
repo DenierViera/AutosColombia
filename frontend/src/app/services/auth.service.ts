@@ -1,15 +1,20 @@
+
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 
+export type RolUsuario = 'ADMINISTRADOR' | 'OPERADOR';
+
+export interface UsuarioSesion {
+  id: number;
+  username: string;
+  rol: RolUsuario;
+}
+
 interface LoginResponse {
   access_token: string;
   token_type: string;
-  usuario: {
-    id: number;
-    username: string;
-    rol: string;
-  };
+  usuario: UsuarioSesion;
 }
 
 @Injectable({
@@ -49,7 +54,28 @@ export class AuthService {
     return localStorage.getItem('access_token');
   }
 
+  getUsuario(): UsuarioSesion | null {
+    const storedUser = localStorage.getItem('usuario');
+
+    if (!storedUser) return null;
+
+    try {
+      return JSON.parse(storedUser) as UsuarioSesion;
+    } catch {
+      this.logout();
+      return null;
+    }
+  }
+
+  getRol(): RolUsuario | null {
+    return this.getUsuario()?.rol ?? null;
+  }
+
+  hasRole(rol: RolUsuario): boolean {
+    return this.getRol() === rol;
+  }
+
   isAuthenticated(): boolean {
-    return !!this.getToken();
+    return !!this.getToken() && !!this.getUsuario();
   }
 }

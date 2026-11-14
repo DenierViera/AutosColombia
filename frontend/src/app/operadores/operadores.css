@@ -231,3 +231,102 @@ thead th {
     padding-top: 28px;
   }
 }
+
+
+/* Credenciales del operador */
+.credential {
+  color: #214c43;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.masked-password {
+  color: #586b60;
+  letter-spacing: 2px;
+  font-size: 15px;
+}
+
+.muted {
+  color: #89958d;
+  font-size: 13px;
+}
+
+/* Estado de acceso interactivo */
+.access-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 116px;
+  padding: 7px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  transition: background 0.2s, color 0.2s;
+}
+
+.access-status.active {
+  background: #e6f4eb;
+  border-color: #b8dfc5;
+  color: #247346;
+}
+
+.access-status.inactive {
+  background: #fcebea;
+  border-color: #edc3bf;
+  color: #a03930;
+}
+
+.access-status.active:hover:not(:disabled) {
+  background: #d2eadb;
+}
+
+.access-status.inactive:hover:not(:disabled) {
+  background: #f5d8d5;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* Tabla de seis columnas */
+.table-scroll table {
+  min-width: 950px;
+}
+
+.table-scroll tbody tr:hover {
+  background: #f8faf7;
+}
+
+.table-scroll th,
+.table-scroll td {
+  vertical-align: middle;
+}
+
+.row-actions {
+  min-width: 145px;
+}
+
+/* Formulario de credenciales */
+.form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.field input[type="password"] {
+  letter-spacing: 1px;
+}
+
+/* Adaptación móvil */
+@media (max-width: 760px) {
+  .table-scroll table {
+    min-width: 950px;
+  }
+
+  .access-status {
+    min-width: 108px;
+  }
+}
