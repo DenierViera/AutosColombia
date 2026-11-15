@@ -81,9 +81,18 @@ class ServicioEstancia:
     @transaccion
     def entrada(self, data: EntradaCrear) -> EstanciaRespuesta:
         vehiculo = self._vehiculo(data.placa)
-        celda = self.session.get(Celda, data.celda_id)
+        celda = self.session.scalar(
+            select(Celda)
+            .where(
+                Celda.id == data.celda_id,
+                Celda.eliminada.is_(False),
+            )
+            .execution_options(populate_existing=True)
+            .with_for_update()
+        )
+
         if celda is None:
-            raise EstanciaError(404, "Celda no encontrada.")
+            raise EstanciaError(404, "Celda no encontrada o no disponible.")
         self._validar_compatibilidad(vehiculo, celda)
         operador = self._operador(data.operador_id)
         if self.session.scalar(select(Estancia.id).where(

@@ -2,9 +2,22 @@
 
 from datetime import datetime, timezone
 
-from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKey, Identity, Index, Integer, Text, UniqueConstraint, func, text
+
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, validates
-from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, ForeignKey, Identity, Index, Integer, Text, UniqueConstraint, func, text
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Identity,
+    Index,
+    Integer,
+    Text,
+    UniqueConstraint,
+    func,
+    text,
+)
 
 class Base(DeclarativeBase):
     pass
@@ -18,6 +31,15 @@ def required_text(value: str, attribute: str) -> str:
 
 class Vehiculo(Base):
     __tablename__ = "vehiculo"
+    #__table_args__ = (
+        #UniqueConstraint("placa", name="uq_vehiculo_placa"),
+        #CheckConstraint("placa ~ '[^[:space:]]'", name="ck_vehiculo_placa_no_vacia"),
+        #CheckConstraint("placa = upper(regexp_replace(placa, '^[[:space:]]+|[[:space:]]+$', '', 'g'))", name="ck_vehiculo_placa_normalizada"),
+        #CheckConstraint("color ~ '[^[:space:]]'", name="ck_vehiculo_color_no_vacio"),
+        #CheckConstraint("marca ~ '[^[:space:]]'", name="ck_vehiculo_marca_no_vacia"),
+        #CheckConstraint("modelo BETWEEN 1 AND 9999", name="ck_vehiculo_modelo_anio"),
+        #CheckConstraint("tipo IN ('MOTO', 'AUTOMOVIL', 'CAMIONETA')", name="ck_vehiculo_tipo"),
+    #)
     __table_args__ = (
         UniqueConstraint("placa", name="uq_vehiculo_placa"),
         CheckConstraint("placa ~ '[^[:space:]]'", name="ck_vehiculo_placa_no_vacia"),
@@ -54,15 +76,23 @@ class Vehiculo(Base):
 class Celda(Base):
     __tablename__ = "celda"
     __table_args__ = (
-        UniqueConstraint("codigo", name="uq_celda_codigo"),
         CheckConstraint("codigo ~ '[^[:space:]]'", name="ck_celda_codigo_no_vacio"),
         CheckConstraint("codigo = upper(regexp_replace(codigo, '^[[:space:]]+|[[:space:]]+$', '', 'g'))", name="ck_celda_codigo_normalizado"),
         CheckConstraint("tipo ~ '[^[:space:]]'", name="ck_celda_tipo_no_vacio"),
+        Index(
+            "uq_celda_codigo_activa",
+            "codigo",
+            unique=True,
+            postgresql_where=text("eliminada = false"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
     codigo: Mapped[str] = mapped_column(Text, nullable=False)
     tipo: Mapped[str] = mapped_column(Text, nullable=False)
+    eliminada: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
 
     @validates("codigo", "tipo")
     def validate_text(self, key: str, value: str) -> str:

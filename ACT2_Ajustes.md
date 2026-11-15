@@ -42,7 +42,7 @@ Actualmente existen dos roles:
 
 | Rol | Ruta de acceso |
 |---|---|
-| ADMINISTRADOR | `/` (Inicio) |
+| ADMINISTRADOR | `/` (Inicio)... |
 | OPERADOR | `/control-acceso` |
 
 ### Seguridad

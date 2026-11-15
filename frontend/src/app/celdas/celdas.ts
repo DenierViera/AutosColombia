@@ -213,14 +213,35 @@ export class Celdas {
   }
 
   private errorMessage(error: HttpErrorResponse, deleting = false): string {
-    if (error.status === 404) return 'La celda ya no existe. Actualiza el listado.';
-    if (error.status === 409)
+    const detail = error.error?.detail;
+
+    if (typeof detail === 'string') {
+      return detail;
+    }
+
+    if (error.status === 404) {
+      return 'La celda ya no existe. Actualiza el listado.';
+    }
+
+    if (error.status === 409) {
       return deleting
-        ? 'No se puede eliminar: la celda tiene registros relacionados o un conflicto con otros datos.'
+        ? 'No se puede eliminar: la celda tiene registros relacionados o está ocupada.'
         : 'Ya existe una celda con ese código.';
-    if (error.status === 422)
+    }
+
+    if (error.status === 422) {
       return 'Revisa los datos: hay campos que no cumplen las validaciones.';
-    return 'No se pudo conectar con el servicio. Comprueba la conexión y actualiza el listado antes de reintentar.';
+    }
+
+    if (error.status === 500) {
+      return 'El servidor encontró un error interno al procesar la eliminación.';
+    }
+
+    if (error.status === 503) {
+      return 'El servicio no pudo completar la operación con la base de datos.';
+    }
+
+    return `Error al procesar la solicitud. Código HTTP: ${error.status || 'desconocido'}.`;
   }
 }
 
