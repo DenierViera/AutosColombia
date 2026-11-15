@@ -10,7 +10,7 @@ Para acceder, el usuario debe tener credenciales previamente registradas en el s
 ## CREDENCIALES
 
 Credenciales Admin
-- Username: Admin 17
+- Username: Admin17
 - Password: controler_17_xt
 
 Credenciales Operador
