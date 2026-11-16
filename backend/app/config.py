@@ -52,3 +52,22 @@ def load_database_settings() -> DatabaseSettings:
         password=values["DB_PASSWORD"],
         connect_timeout=positive_integer("DB_CONNECT_TIMEOUT", 60),
     )
+
+def load_jwt_secret() -> str:
+    values = {
+        **dotenv_values(
+            ENV_FILE,
+            encoding="utf-8-sig",
+            interpolate=False,
+        ),
+        **os.environ,
+    }
+
+    secret = (values.get("JWT_SECRET_KEY") or "").strip()
+
+    if not secret or secret.startswith("CAMBIAR_"):
+        raise ConfigurationError(
+            "Completa la variable JWT_SECRET_KEY en la configuración."
+        )
+
+    return secret

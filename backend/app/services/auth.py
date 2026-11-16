@@ -1,5 +1,5 @@
 
-import os
+from app.config import load_jwt_secret
 from datetime import datetime, timedelta, timezone
 
 from jose import jwt
@@ -7,7 +7,7 @@ from passlib.context import CryptContext
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
@@ -27,8 +27,7 @@ def verify_password(plain_password: str, password_hash: str) -> bool:
 
 
 def create_access_token(data: dict) -> str:
-    if not JWT_SECRET_KEY:
-        raise RuntimeError("Falta configurar JWT_SECRET_KEY")
+    secret_key = load_jwt_secret()
 
     payload = data.copy()
     expire = datetime.now(timezone.utc) + timedelta(
@@ -36,4 +35,4 @@ def create_access_token(data: dict) -> str:
     )
     payload.update({"exp": expire})
 
-    return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+    return jwt.encode(payload, secret_key, algorithm=JWT_ALGORITHM)
