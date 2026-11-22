@@ -5,10 +5,17 @@ import { FormBuilder, ReactiveFormsModule, ValidatorFn, Validators } from '@angu
 import { forkJoin } from 'rxjs';
 import { Celda } from '../models/celda';
 import { Operador } from '../models/operador';
-import { TIPOS_VEHICULO, TipoVehiculo, VehiculoCrear } from '../models/vehiculo';
+
 import { EstadoVehiculo } from '../models/estancia';
 import { ApiService } from '../services/api.service';
 import { EstanciasService } from '../services/estancias.service';
+import { Cliente } from '../models/cliente';
+import {
+  TIPOS_VEHICULO,
+  TipoVehiculo,
+  Vehiculo,
+  VehiculoConClienteCrear,
+} from '../models/vehiculo';
 
 const nonBlank: ValidatorFn = (c) =>
   typeof c.value === 'string' && c.value.trim() ? null : { required: true };
@@ -38,6 +45,24 @@ export class ControlAcceso {
   readonly tiposVehiculo = TIPOS_VEHICULO;
 
   readonly tipoVehiculoEntrada = signal<TipoVehiculo | null>(null);
+  readonly vehiculoEntradaRegistrado = signal<boolean | null>(null);
+  readonly vehiculoSinPropietario = signal<Vehiculo | null>(null);
+  readonly mostrarModalPropietario = signal(false);
+  readonly formularioPropietario = this.fb.group({
+    cliente_id: this.fb.control<number | null>(null, Validators.required),
+  });
+
+  readonly errorPropietario = signal('');
+readonly registrarNuevoPropietario = signal(false);
+
+readonly formularioNuevoCliente = this.fb.group({
+  identificacion: this.fb.nonNullable.control('', nonBlank),
+  nombre_completo: this.fb.nonNullable.control('', nonBlank),
+  telefono: this.fb.nonNullable.control('', nonBlank),
+});
+
+readonly errorNuevoCliente = signal('');
+  private versionIdentificacionEntrada = 0;
 
   readonly celdasEntradaCompatibles = computed(() => {
     const tipo = this.tipoVehiculoEntrada();
@@ -76,6 +101,7 @@ export class ControlAcceso {
     ]),
     color: this.fb.nonNullable.control('', nonBlank),
     tipo: this.fb.nonNullable.control<TipoVehiculo | ''>('', Validators.required),
+    cliente_id: this.fb.control<number | null>(null, Validators.required),
     celda_id: this.fb.control<number | null>(null, Validators.required),
     operador_id: this.fb.control<number | null>(null, Validators.required),
   });
@@ -83,6 +109,7 @@ export class ControlAcceso {
   readonly errorRegistroVehiculo = signal('');
   readonly celdas = signal<Celda[]>([]);
   readonly operadores = signal<Operador[]>([]);
+  readonly clientes = signal<Cliente[]>([]);
   readonly catalogLoading = signal(false);
   readonly catalogError = signal('');
   readonly saving = signal(false);
@@ -113,7 +140,11 @@ export class ControlAcceso {
     this.entrada.controls.celda_id.reset();
     this.entrada.controls.operador_id.reset();
     this.consulta.controls.operador_id.reset();
-    forkJoin({ celdas: this.api.celdas(), operadores: this.api.operadores() })
+    forkJoin({
+      celdas: this.api.celdas(),
+      operadores: this.api.operadores(),
+      clientes: this.vehiculosApi.listClients(0, 100),
+    })
       .pipe(takeUntilDestroyed(this.destroy))
       .subscribe({
         next: (data) => {
@@ -122,12 +153,14 @@ export class ControlAcceso {
           console.log('Celdas recibidas del backend:', data.celdas);
           console.log('Tipos de celda:', [...new Set(data.celdas.map((celda) => celda.tipo))]);
           this.operadores.set(data.operadores);
+          this.clientes.set(data.clientes.items);
           this.catalogLoading.set(false);
         },
         error: () => {
           this.catalogLoading.set(false);
           this.celdas.set([]);
           this.operadores.set([]);
+          this.clientes.set([]);
           this.catalogError.set(
             'No se pudieron cargar todas las opciones. Reintenta actualizar catálogos.',
           );
@@ -137,9 +170,12 @@ export class ControlAcceso {
 
   identificarVehiculoEntrada(): void {
     const value = placa(this.entrada.controls.placa.value);
+    const version = ++this.versionIdentificacionEntrada;
 
     this.tipoVehiculoEntrada.set(null);
+    this.vehiculoEntradaRegistrado.set(null);
     this.entrada.controls.celda_id.reset();
+    this.errorEntrada.set('');
 
     if (!value) return;
 
@@ -148,12 +184,19 @@ export class ControlAcceso {
       .pipe(takeUntilDestroyed(this.destroy))
       .subscribe({
         next: (result) => {
+          if (version !== this.versionIdentificacionEntrada) return;
+
+          this.vehiculoEntradaRegistrado.set(true);
           this.tipoVehiculoEntrada.set(result.vehiculo.tipo);
         },
         error: (error) => {
+          if (version !== this.versionIdentificacionEntrada) return;
+
           if (error.status === 404) {
+            this.vehiculoEntradaRegistrado.set(false);
             this.tipoVehiculoEntrada.set(null);
           } else {
+            this.vehiculoEntradaRegistrado.set(null);
             this.errorEntrada.set(this.mensaje(error));
           }
         },
@@ -189,7 +232,14 @@ export class ControlAcceso {
       .consultar(data.placa)
       .pipe(takeUntilDestroyed(this.destroy))
       .subscribe({
-        next: () => {
+        next: (result) => {
+          if (result.vehiculo.cliente_id == null) {
+            this.saving.set(false);
+            this.vehiculoSinPropietario.set(result.vehiculo);
+            this.mostrarModalPropietario.set(true);
+            return;
+          }
+
           this.api
             .entrada(data)
             .pipe(takeUntilDestroyed(this.destroy))
@@ -259,6 +309,7 @@ export class ControlAcceso {
       modelo: null,
       color: '',
       tipo: '',
+      cliente_id: null,
       celda_id: null,
       operador_id: null,
     });
@@ -275,10 +326,179 @@ export class ControlAcceso {
     this.formularioVehiculo.reset();
   }
 
+  asociarPropietario(): void {
+    if (this.saving()) return;
+
+    this.formularioPropietario.markAllAsTouched();
+
+    if (this.formularioPropietario.invalid) return;
+
+    const vehiculo = this.vehiculoSinPropietario();
+    const cliente_id = this.formularioPropietario.controls.cliente_id.value;
+
+    if (!vehiculo || cliente_id === null) return;
+
+    this.saving.set(true);
+    this.errorPropietario.set('');
+
+    this.vehiculosApi
+      .update(vehiculo.id, { cliente_id })
+      .pipe(takeUntilDestroyed(this.destroy))
+      .subscribe({
+        next: () => {
+          this.saving.set(false);
+          this.mostrarModalPropietario.set(false);
+          this.vehiculoSinPropietario.set(null);
+          this.formularioPropietario.reset();
+          this.formularioNuevoCliente.reset();
+          this.registrarNuevoPropietario.set(false);
+          this.errorNuevoCliente.set('');
+
+          this.registrarEntrada();
+        },
+        error: (error: HttpErrorResponse) => {
+          this.saving.set(false);
+          this.errorPropietario.set(this.mensaje(error));
+        },
+      });
+  }
+
+
+  crearYAsociarPropietario(): void {
+    if (this.saving()) return;
+
+    this.formularioNuevoCliente.markAllAsTouched();
+
+    if (this.formularioNuevoCliente.invalid) return;
+
+    const vehiculo = this.vehiculoSinPropietario();
+
+    if (!vehiculo) return;
+
+    const raw = this.formularioNuevoCliente.getRawValue();
+
+    const cliente = {
+      identificacion: raw.identificacion.trim(),
+      nombre_completo: raw.nombre_completo.trim(),
+      telefono: raw.telefono.trim(),
+    };
+
+    this.saving.set(true);
+    this.errorNuevoCliente.set('');
+
+    this.vehiculosApi
+      .createClient(cliente)
+      .pipe(takeUntilDestroyed(this.destroy))
+      .subscribe({
+        next: (nuevoCliente) => {
+          this.vehiculosApi
+            .update(vehiculo.id, { cliente_id: nuevoCliente.id })
+            .pipe(takeUntilDestroyed(this.destroy))
+            .subscribe({
+              next: () => {
+                this.saving.set(false);
+                this.mostrarModalPropietario.set(false);
+                this.vehiculoSinPropietario.set(null);
+
+                this.formularioNuevoCliente.reset();
+                this.formularioPropietario.reset();
+
+                this.registrarNuevoPropietario.set(false);
+                this.errorPropietario.set('');
+                this.errorNuevoCliente.set('');
+
+                this.registrarEntrada();
+              },
+              error: (error: HttpErrorResponse) => {
+                this.saving.set(false);
+                this.errorNuevoCliente.set(
+                  'El cliente fue creado, pero no se pudo asociar al vehículo: ' +
+                    this.mensaje(error)
+                );
+              },
+            });
+        },
+        error: (error: HttpErrorResponse) => {
+          this.saving.set(false);
+          this.errorNuevoCliente.set(this.mensaje(error));
+        },
+      });
+  }
+
+cancelarAsociacionPropietario(): void {
+  if (this.saving()) return;
+
+  this.mostrarModalPropietario.set(false);
+  this.vehiculoSinPropietario.set(null);
+
+  this.formularioPropietario.reset();
+  this.formularioNuevoCliente.reset();
+
+  this.registrarNuevoPropietario.set(false);
+
+  this.errorPropietario.set('');
+  this.errorNuevoCliente.set('');
+}
+
+
+
   registrarVehiculoYEntrada(): void {
     if (this.busy() || this.catalogLoading() || this.catalogError()) return;
 
     this.formularioVehiculo.markAllAsTouched();
+
+    const raw = this.formularioVehiculo.getRawValue();
+    const registrarClienteNuevo = this.registrarNuevoPropietario();
+
+    if (registrarClienteNuevo) {
+      const camposVehiculoInvalidos = Object.entries(
+        this.formularioVehiculo.controls,
+      ).some(([nombre, control]) => {
+        return nombre !== 'cliente_id' && control.invalid;
+      });
+
+      this.formularioNuevoCliente.markAllAsTouched();
+
+      if (camposVehiculoInvalidos || this.formularioNuevoCliente.invalid) {
+        this.errorRegistroVehiculo.set(
+          'Revisa los datos del vehículo y del nuevo propietario.',
+        );
+        return;
+      }
+
+      const datosCliente = this.formularioNuevoCliente.getRawValue();
+
+      const cliente = {
+        identificacion: datosCliente.identificacion.trim(),
+        nombre_completo: datosCliente.nombre_completo.trim(),
+        telefono: datosCliente.telefono.trim(),
+      };
+
+      this.saving.set(true);
+      this.errorRegistroVehiculo.set('');
+      this.errorNuevoCliente.set('');
+      this.exitoEntrada.set('');
+
+      this.vehiculosApi
+        .createClient(cliente)
+        .pipe(takeUntilDestroyed(this.destroy))
+        .subscribe({
+          next: (nuevoCliente) => {
+            this.clientes.update((clientes) => [
+              ...clientes,
+              nuevoCliente,
+            ]);
+
+            this.registrarVehiculoConCliente(nuevoCliente.id);
+          },
+          error: (error: HttpErrorResponse) => {
+            this.saving.set(false);
+            this.errorNuevoCliente.set(this.mensaje(error));
+          },
+        });
+
+      return;
+    }
 
     if (this.formularioVehiculo.invalid) {
       this.errorRegistroVehiculo.set(
@@ -287,14 +507,24 @@ export class ControlAcceso {
       return;
     }
 
+    this.saving.set(true);
+    this.errorRegistroVehiculo.set('');
+    this.exitoEntrada.set('');
+
+    this.registrarVehiculoConCliente(raw.cliente_id!);
+  }
+
+
+  private registrarVehiculoConCliente(clienteId: number): void {
     const raw = this.formularioVehiculo.getRawValue();
 
-    const vehiculo: VehiculoCrear = {
+    const vehiculo: VehiculoConClienteCrear = {
       placa: placa(raw.placa),
       marca: raw.marca.trim(),
       modelo: raw.modelo!,
       color: raw.color.trim(),
       tipo: raw.tipo as TipoVehiculo,
+      cliente_id: clienteId,
     };
 
     const data = {
@@ -307,11 +537,6 @@ export class ControlAcceso {
       this.celdas().find((c) => c.id === data.celda_id)?.codigo ??
       String(data.celda_id);
 
-    this.saving.set(true);
-    this.errorRegistroVehiculo.set('');
-    this.exitoEntrada.set('');
-    this.errorConsulta.set('');
-
     this.vehiculosApi
       .registrarVehiculoYEntrada(data)
       .pipe(takeUntilDestroyed(this.destroy))
@@ -319,7 +544,13 @@ export class ControlAcceso {
         next: (result) => {
           this.saving.set(false);
           this.mostrarModalVehiculo.set(false);
+
           this.formularioVehiculo.reset();
+          this.formularioNuevoCliente.reset();
+
+          this.registrarNuevoPropietario.set(false);
+          this.errorNuevoCliente.set('');
+          this.errorRegistroVehiculo.set('');
 
           this.exitoEntrada.set(
             `Vehículo ${vehiculo.placa} registrado y entrada confirmada en la celda ${codigo}, ${this.fecha(result.entrada)}.`,
@@ -334,6 +565,7 @@ export class ControlAcceso {
         },
       });
   }
+
 
   consultarVehiculoRegistrado(placaVehiculo: string): void {
     this.querying.set(true);

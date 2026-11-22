@@ -13,6 +13,10 @@ TipoVehiculo = Annotated[
     BeforeValidator(lambda value: required_text(value, "tipo")),
 ]
 
+ClienteId = Annotated[
+    int,
+    Field(strict=True, ge=1, le=9223372036854775807),
+]
 
 class VehiculoCrear(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -22,6 +26,8 @@ class VehiculoCrear(BaseModel):
     modelo: Anio
     marca: Texto
     tipo: TipoVehiculo
+
+    cliente_id: ClienteId | None = None
 
 
 class VehiculoActualizar(BaseModel):
@@ -40,6 +46,7 @@ class VehiculoActualizar(BaseModel):
             raise ValueError("Los campos enviados no pueden ser nulos.")
         return value
 
+    cliente_id: ClienteId | None = None
 
 class VehiculoRespuesta(VehiculoCrear):
     model_config = ConfigDict(from_attributes=True, extra="forbid")

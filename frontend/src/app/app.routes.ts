@@ -31,6 +31,13 @@ export const routes: Routes = [
       import('./celdas/celdas').then(m => m.Celdas),
   },
   {
+    path: 'gestion/clientes',
+    title: 'Clientes | Autos Colombia',
+    canActivate: [roleGuard('ADMINISTRADOR')],
+    loadComponent: () =>
+      import('./clientes/clientes').then(m => m.Clientes),
+  },
+  {
     path: '',
     title: 'Inicio | Autos Colombia',
     canActivate: [roleGuard('ADMINISTRADOR')],

@@ -77,7 +77,18 @@
             </span>
           </div>
         </div>
+      @if (vehiculoEntradaRegistrado() === false) {
+        <button
+          class="primary"
+          type="button"
+          [disabled]="busy() || catalogLoading() || !!catalogError() || entrada.controls.placa.invalid"
+          (click)="abrirModalVehiculo(entrada.controls.placa.value.trim().toUpperCase())"
+        >
+          Registrar placa - Vehículo
+        </button>
+      } @else {
         <button class="primary" type="submit">Registrar entrada</button>
+      }
       </fieldset>
     </form>
     @if (errorEntrada()) {
@@ -246,6 +257,104 @@
                 }
               </div>
 
+
+                <div class="field">
+                  <label>Propietario del vehículo</label>
+
+                  <div class="modal-actions">
+                    <button
+                      type="button"
+                      [class.primary]="!registrarNuevoPropietario()"
+                      [disabled]="saving()"
+                      (click)="registrarNuevoPropietario.set(false)"
+                    >
+                      Cliente existente
+                    </button>
+
+                    <button
+                      type="button"
+                      [class.primary]="registrarNuevoPropietario()"
+                      [disabled]="saving()"
+                      (click)="registrarNuevoPropietario.set(true)"
+                    >
+                      Registrar cliente
+                    </button>
+                  </div>
+
+                  @if (!registrarNuevoPropietario()) {
+                    <select
+                      id="modal-client"
+                      formControlName="cliente_id"
+                    >
+                      <option [ngValue]="null">
+                        Selecciona un propietario
+                      </option>
+
+                      @for (cliente of clientes(); track cliente.id) {
+                        <option [ngValue]="cliente.id">
+                          {{ cliente.nombre_completo }} · {{ cliente.identificacion }}
+                        </option>
+                      }
+                    </select>
+
+                    @if (
+                      formularioVehiculo.controls.cliente_id.touched &&
+                      formularioVehiculo.controls.cliente_id.invalid
+                    ) {
+                      <span class="field-error">
+                        Selecciona un propietario.
+                      </span>
+                    }
+
+                    @if (!clientes().length) {
+                      <span class="field-error">
+                        No hay clientes registrados.
+                      </span>
+                    }
+                  } @else {
+                    <div [formGroup]="formularioNuevoCliente">
+                      <div class="field">
+                        <label for="new-client-identification">
+                          Número de identificación
+                        </label>
+                        <input
+                          id="new-client-identification"
+                          type="text"
+                          formControlName="identificacion"
+                        />
+                      </div>
+
+                      <div class="field">
+                        <label for="new-client-name">
+                          Nombre completo
+                        </label>
+                        <input
+                          id="new-client-name"
+                          type="text"
+                          formControlName="nombre_completo"
+                        />
+                      </div>
+
+                      <div class="field">
+                        <label for="new-client-phone">
+                          Teléfono
+                        </label>
+                        <input
+                          id="new-client-phone"
+                          type="tel"
+                          formControlName="telefono"
+                        />
+                      </div>
+                    </div>
+
+                    @if (errorNuevoCliente()) {
+                      <span class="field-error">
+                        {{ errorNuevoCliente() }}
+                      </span>
+                    }
+                  }
+                </div>
+
               <div class="field">
                 <label for="modal-cell">Celda disponible</label>
                 <select id="modal-cell" formControlName="celda_id">
@@ -314,5 +423,208 @@
       </section>
     </div>
   }
+
+
+  @if (mostrarModalPropietario()) {
+    <div class="modal-overlay" role="presentation">
+      <section
+        class="vehicle-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="owner-modal-title"
+      >
+        <header class="modal-header">
+          <div>
+            <span class="eyebrow">AUTOS COLOMBIA</span>
+            <h2 id="owner-modal-title">Asociar propietario</h2>
+            <p>
+              El vehículo {{ vehiculoSinPropietario()?.placa }}
+              no tiene un propietario asignado.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            class="modal-close"
+            aria-label="Cerrar modal"
+            [disabled]="saving()"
+            (click)="cancelarAsociacionPropietario()"
+          >
+            ×
+          </button>
+        </header>
+
+        <div class="modal-actions">
+          <button
+            type="button"
+            [class.primary]="!registrarNuevoPropietario()"
+            [disabled]="saving()"
+            (click)="registrarNuevoPropietario.set(false)"
+          >
+            Cliente existente
+          </button>
+
+          <button
+            type="button"
+            [class.primary]="registrarNuevoPropietario()"
+            [disabled]="saving()"
+            (click)="registrarNuevoPropietario.set(true)"
+          >
+            Registrar cliente
+          </button>
+        </div>
+
+        @if (!registrarNuevoPropietario()) {
+          <form
+            [formGroup]="formularioPropietario"
+            (ngSubmit)="asociarPropietario()"
+          >
+            <fieldset [disabled]="saving() || catalogLoading()">
+              <div class="field">
+                <label for="owner-client">Seleccionar propietario</label>
+
+                <select id="owner-client" formControlName="cliente_id">
+                  <option [ngValue]="null">
+                    Selecciona un propietario
+                  </option>
+
+                  @for (cliente of clientes(); track cliente.id) {
+                    <option [ngValue]="cliente.id">
+                      {{ cliente.nombre_completo }} · {{ cliente.identificacion }}
+                    </option>
+                  }
+                </select>
+
+                @if (
+                  formularioPropietario.controls.cliente_id.touched &&
+                  formularioPropietario.controls.cliente_id.invalid
+                ) {
+                  <span class="field-error">
+                    Selecciona un propietario.
+                  </span>
+                }
+
+                @if (!clientes().length) {
+                  <span class="field-error">
+                    No hay clientes registrados. Registra uno nuevo.
+                  </span>
+                }
+              </div>
+
+              @if (errorPropietario()) {
+                <p class="notice error" role="alert">
+                  {{ errorPropietario() }}
+                </p>
+              }
+
+              <div class="modal-actions">
+                <button
+                  type="button"
+                  [disabled]="saving()"
+                  (click)="cancelarAsociacionPropietario()"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="submit"
+                  class="primary"
+                  [disabled]="busy() || catalogLoading() || !clientes().length"
+                >
+                  {{ saving() ? 'Asociando…' : 'Asociar y continuar' }}
+                </button>
+              </div>
+            </fieldset>
+          </form>
+        } @else {
+          <div [formGroup]="formularioNuevoCliente">
+            <fieldset [disabled]="saving()">
+              <div class="form-grid">
+                <div class="field">
+                  <label for="owner-identification">Identificación</label>
+                  <input
+                    id="owner-identification"
+                    type="text"
+                    formControlName="identificacion"
+                  />
+
+                  @if (
+                    formularioNuevoCliente.controls.identificacion.touched &&
+                    formularioNuevoCliente.controls.identificacion.invalid
+                  ) {
+                    <span class="field-error">
+                      Ingresa la identificación.
+                    </span>
+                  }
+                </div>
+
+                <div class="field">
+                  <label for="owner-name">Nombre completo</label>
+                  <input
+                    id="owner-name"
+                    type="text"
+                    formControlName="nombre_completo"
+                  />
+
+                  @if (
+                    formularioNuevoCliente.controls.nombre_completo.touched &&
+                    formularioNuevoCliente.controls.nombre_completo.invalid
+                  ) {
+                    <span class="field-error">
+                      Ingresa el nombre completo.
+                    </span>
+                  }
+                </div>
+
+                <div class="field">
+                  <label for="owner-phone">Teléfono</label>
+                  <input
+                    id="owner-phone"
+                    type="tel"
+                    formControlName="telefono"
+                  />
+
+                  @if (
+                    formularioNuevoCliente.controls.telefono.touched &&
+                    formularioNuevoCliente.controls.telefono.invalid
+                  ) {
+                    <span class="field-error">
+                      Ingresa el teléfono.
+                    </span>
+                  }
+                </div>
+              </div>
+
+              @if (errorNuevoCliente()) {
+                <p class="notice error" role="alert">
+                  {{ errorNuevoCliente() }}
+                </p>
+              }
+
+              <div class="modal-actions">
+                <button
+                  type="button"
+                  [disabled]="saving()"
+                  (click)="cancelarAsociacionPropietario()"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="button"
+                  class="primary"
+                  [disabled]="busy()"
+                  (click)="crearYAsociarPropietario()"
+                >
+                  {{ saving() ? 'Registrando…' : 'Crear cliente y asociar vehículo' }}
+                </button>
+              </div>
+            </fieldset>
+          </div>
+        }
+      </section>
+    </div>
+  }
+
 
 </section>

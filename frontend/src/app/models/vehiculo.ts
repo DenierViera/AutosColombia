@@ -1,5 +1,6 @@
 export const TIPOS_VEHICULO = ['MOTO', 'AUTOMOVIL', 'CAMIONETA'] as const;
 export type TipoVehiculo = (typeof TIPOS_VEHICULO)[number];
+
 export interface VehiculoCrear {
   placa: string;
   color: string;
@@ -7,9 +8,18 @@ export interface VehiculoCrear {
   marca: string;
   tipo: TipoVehiculo;
 }
-export type VehiculoActualizar = Partial<VehiculoCrear>;
+
+export interface VehiculoConClienteCrear extends VehiculoCrear {
+  cliente_id: number;
+}
+
+export type VehiculoActualizar = Partial<VehiculoCrear> & {
+  cliente_id?: number | null;
+};
+
 export interface Vehiculo extends VehiculoCrear {
   id: number;
+  cliente_id?: number | null;
 }
 export interface VehiculosPagina {
   items: Vehiculo[];

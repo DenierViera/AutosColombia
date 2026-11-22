@@ -28,6 +28,43 @@ def required_text(value: str, attribute: str) -> str:
         raise ValueError(f"{attribute} debe ser texto no vacío.")
     return value.strip()
 
+class Cliente(Base):
+    __tablename__ = "cliente"
+    __table_args__ = (
+        UniqueConstraint(
+            "identificacion",
+            name="uq_cliente_identificacion",
+        ),
+        CheckConstraint(
+            "identificacion ~ '[^[:space:]]'",
+            name="ck_cliente_identificacion_no_vacia",
+        ),
+        CheckConstraint(
+            "nombre_completo ~ '[^[:space:]]'",
+            name="ck_cliente_nombre_no_vacio",
+        ),
+        CheckConstraint(
+            "telefono ~ '[^[:space:]]'",
+            name="ck_cliente_telefono_no_vacio",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(
+        BigInteger,
+        Identity(always=True),
+        primary_key=True,
+    )
+    identificacion: Mapped[str] = mapped_column(Text, nullable=False)
+    nombre_completo: Mapped[str] = mapped_column(Text, nullable=False)
+    telefono: Mapped[str] = mapped_column(Text, nullable=False)
+
+    vehiculos: Mapped[list["Vehiculo"]] = relationship(
+        back_populates="cliente"
+    )
+
+    @validates("identificacion", "nombre_completo", "telefono")
+    def validate_text(self, key: str, value: str) -> str:
+        return required_text(value, key)
 
 class Vehiculo(Base):
     __tablename__ = "vehiculo"
@@ -56,6 +93,20 @@ class Vehiculo(Base):
     modelo: Mapped[int] = mapped_column(Integer, nullable=False)
     marca: Mapped[str] = mapped_column(Text, nullable=False)
     tipo: Mapped[str] = mapped_column(Text, nullable=False)
+
+    cliente_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        ForeignKey(
+            "cliente.id",
+            name="fk_vehiculo_cliente",
+            ondelete="RESTRICT",
+        ),
+        nullable=True,
+    )
+
+    cliente: Mapped[Cliente | None] = relationship(
+        back_populates="vehiculos"
+    )
 
     @validates("placa", "color", "marca", "tipo")
     def validate_text(self, key: str, value: str) -> str:

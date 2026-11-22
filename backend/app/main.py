@@ -11,6 +11,9 @@ from app.routers.estancias import router as estancias_router
 from app.services.estancia import EstanciaError
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.routers.clientes import router as clientes_router
+from app.services.cliente import ClienteError
+
 from app.routers.auth import router as auth_router
 from app.services.auth import AuthError
 
@@ -30,6 +33,7 @@ app.include_router(celdas_router)
 app.include_router(operadores_router)
 app.include_router(estancias_router)
 app.include_router(auth_router)
+app.include_router(clientes_router)
 
 
 @app.exception_handler(VehiculoError)
@@ -46,6 +50,13 @@ def health() -> dict[str, str]:
 
 @app.exception_handler(AuthError)
 async def auth_error_handler(request, error: AuthError) -> JSONResponse:
+    return JSONResponse(
+        status_code=error.status_code,
+        content={"detail": error.detail},
+    )
+
+@app.exception_handler(ClienteError)
+async def cliente_error_handler(request, error: ClienteError) -> JSONResponse:
     return JSONResponse(
         status_code=error.status_code,
         content={"detail": error.detail},

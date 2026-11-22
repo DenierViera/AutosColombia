@@ -3,16 +3,14 @@ from functools import wraps
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
-
+from app.models import Cliente, Vehiculo
 from app.models import Vehiculo
 from app.schemas.vehiculo import VehiculoActualizar, VehiculoCrear
-
 
 class VehiculoError(Exception):
     def __init__(self, status_code: int, detail: str) -> None:
         self.status_code = status_code
         self.detail = detail
-
 
 def database_operation(operation):
     """Centraliza rollback y mensajes públicos sin detalles del driver."""
@@ -46,10 +44,17 @@ def find_vehicle(session: Session, vehicle_id: int) -> Vehiculo:
 
 @database_operation
 def create_vehicle(session: Session, data: VehiculoCrear) -> Vehiculo:
+    if data.cliente_id is not None:
+        client = session.get(Cliente, data.cliente_id)
+
+        if client is None:
+            raise VehiculoError(404, "Cliente no encontrado.")
+
     vehicle = Vehiculo(**data.model_dump())
     session.add(vehicle)
     session.commit()
     session.refresh(vehicle)
+
     return vehicle
 
 
@@ -66,12 +71,26 @@ def get_vehicle(session: Session, vehicle_id: int) -> Vehiculo:
 
 
 @database_operation
-def update_vehicle(session: Session, vehicle_id: int, data: VehiculoActualizar) -> Vehiculo:
+def update_vehicle(
+    session: Session,
+    vehicle_id: int,
+    data: VehiculoActualizar,
+) -> Vehiculo:
     vehicle = find_vehicle(session, vehicle_id)
-    for key, value in data.model_dump(exclude_unset=True).items():
+    changes = data.model_dump(exclude_unset=True)
+
+    if "cliente_id" in changes and changes["cliente_id"] is not None:
+        client = session.get(Cliente, changes["cliente_id"])
+
+        if client is None:
+            raise VehiculoError(404, "Cliente no encontrado.")
+
+    for key, value in changes.items():
         setattr(vehicle, key, value)
+
     session.commit()
     session.refresh(vehicle)
+
     return vehicle
 
 
