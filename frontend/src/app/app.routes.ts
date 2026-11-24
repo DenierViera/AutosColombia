@@ -38,6 +38,13 @@ export const routes: Routes = [
       import('./clientes/clientes').then(m => m.Clientes),
   },
   {
+    path: 'gestion/pagos',
+    title: 'Pagos | Autos Colombia',
+    canActivate: [roleGuard('ADMINISTRADOR')],
+    loadComponent: () =>
+      import('./pagos/pagos').then(m => m.Pagos),
+  },
+  {
     path: '',
     title: 'Inicio | Autos Colombia',
     canActivate: [roleGuard('ADMINISTRADOR')],

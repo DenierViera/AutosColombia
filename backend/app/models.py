@@ -1,7 +1,7 @@
 """Modelos iniciales. Importar este módulo no crea tablas ni abre conexiones."""
 
 from datetime import datetime, timezone
-
+from decimal import Decimal
 
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, validates
 from sqlalchemy import (
@@ -17,6 +17,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
     text,
+    Numeric,
 )
 
 class Base(DeclarativeBase):
@@ -59,6 +60,9 @@ class Cliente(Base):
     telefono: Mapped[str] = mapped_column(Text, nullable=False)
 
     vehiculos: Mapped[list["Vehiculo"]] = relationship(
+        back_populates="cliente"
+    )
+    suscripciones: Mapped[list["Suscripcion"]] = relationship(
         back_populates="cliente"
     )
 
@@ -143,6 +147,9 @@ class Celda(Base):
     tipo: Mapped[str] = mapped_column(Text, nullable=False)
     eliminada: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("false")
+    )
+    suscripciones: Mapped[list["Suscripcion"]] = relationship(
+        back_populates="celda"
     )
 
     @validates("codigo", "tipo")
@@ -257,3 +264,259 @@ class Estancia(Base):
         self.salida = fecha_salida
         self.operador_salida = operador
         self.operador_salida_id = operador.id
+
+
+class Plan(Base):
+    __tablename__ = "plan"
+
+    __table_args__ = (
+        UniqueConstraint("nombre", name="uq_plan_nombre"),
+        CheckConstraint(
+            "precio >= 0",
+            name="ck_plan_precio_no_negativo",
+        ),
+        CheckConstraint(
+            "duracion_dias > 0",
+            name="ck_plan_duracion_positiva",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(
+        BigInteger,
+        Identity(always=True),
+        primary_key=True,
+    )
+
+    nombre: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+
+    descripcion: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    precio: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2),
+        nullable=False,
+    )
+
+    duracion_dias: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+    )
+
+    activo: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        server_default=text("true"),
+    )
+
+    suscripciones: Mapped[list["Suscripcion"]] = relationship(
+        back_populates="plan"
+    )
+
+    @validates("nombre")
+    def validate_nombre(self, key: str, value: str) -> str:
+        return required_text(value, key)
+
+    @validates("precio")
+    def validate_precio(self, key: str, value: Decimal) -> Decimal:
+        if not isinstance(value, (Decimal, int, float)):
+            raise ValueError("El precio debe ser numérico.")
+
+        value = Decimal(str(value))
+
+        if value < 0:
+            raise ValueError("El precio no puede ser negativo.")
+
+        return value
+
+    @validates("duracion_dias")
+    def validate_duracion(self, key: str, value: int) -> int:
+        if type(value) is not int or value <= 0:
+            raise ValueError(
+                "La duración debe ser un entero positivo."
+            )
+
+        return value
+
+
+class Suscripcion(Base):
+    __tablename__ = "suscripcion"
+
+    __table_args__ = (
+        CheckConstraint(
+            "fecha_fin > fecha_inicio",
+            name="ck_suscripcion_orden_fechas",
+        ),
+        CheckConstraint(
+            "estado IN ('ACTIVA', 'VENCIDA', 'CANCELADA')",
+            name="ck_suscripcion_estado",
+        ),
+        Index(
+            "uq_suscripcion_celda_activa",
+            "celda_id",
+            unique=True,
+            postgresql_where=text("estado = 'ACTIVA'"),
+        ),
+        Index(
+            "ix_suscripcion_cliente_estado",
+            "cliente_id",
+            "estado",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(
+        BigInteger,
+        Identity(always=True),
+        primary_key=True,
+    )
+
+    cliente_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey(
+            "cliente.id",
+            name="fk_suscripcion_cliente",
+            ondelete="RESTRICT",
+        ),
+        nullable=False,
+    )
+
+    plan_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey(
+            "plan.id",
+            name="fk_suscripcion_plan",
+            ondelete="RESTRICT",
+        ),
+        nullable=False,
+    )
+
+    celda_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey(
+            "celda.id",
+            name="fk_suscripcion_celda",
+            ondelete="RESTRICT",
+        ),
+        nullable=False,
+    )
+
+    fecha_inicio: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    fecha_fin: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+
+    estado: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        server_default=text("'ACTIVA'"),
+    )
+
+    cliente: Mapped["Cliente"] = relationship(
+        back_populates="suscripciones"
+    )
+
+    plan: Mapped["Plan"] = relationship(
+        back_populates="suscripciones"
+    )
+
+    celda: Mapped["Celda"] = relationship(
+        back_populates="suscripciones"
+    )
+
+    pagos: Mapped[list["Pago"]] = relationship(
+        back_populates="suscripcion"
+    )
+
+    @validates("estado")
+    def validate_estado(self, key: str, value: str) -> str:
+        estados = {"ACTIVA", "VENCIDA", "CANCELADA"}
+
+        if value not in estados:
+            raise ValueError(
+                "El estado debe ser ACTIVA, VENCIDA o CANCELADA."
+            )
+
+        return value
+
+
+class Pago(Base):
+    __tablename__ = "pago"
+
+    __table_args__ = (
+        CheckConstraint(
+            "valor > 0",
+            name="ck_pago_valor_positivo",
+        ),
+        Index(
+            "ix_pago_suscripcion_fecha",
+            "suscripcion_id",
+            "fecha_pago",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(
+        BigInteger,
+        Identity(always=True),
+        primary_key=True,
+    )
+
+    suscripcion_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey(
+            "suscripcion.id",
+            name="fk_pago_suscripcion",
+            ondelete="RESTRICT",
+        ),
+        nullable=False,
+    )
+
+    valor: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2),
+        nullable=False,
+    )
+
+    fecha_pago: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    metodo_pago: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+    )
+
+    referencia: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    suscripcion: Mapped["Suscripcion"] = relationship(
+        back_populates="pagos"
+    )
+
+    @validates("metodo_pago")
+    def validate_metodo_pago(self, key: str, value: str) -> str:
+        return required_text(value, key)
+
+    @validates("valor")
+    def validate_valor(self, key: str, value: Decimal) -> Decimal:
+        if not isinstance(value, (Decimal, int, float)):
+            raise ValueError("El valor del pago debe ser numérico.")
+
+        value = Decimal(str(value))
+
+        if value <= 0:
+            raise ValueError("El valor del pago debe ser positivo.")
+
+        return value

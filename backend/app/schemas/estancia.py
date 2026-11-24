@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from typing import Annotated
-
+from app.schemas.suscripcion import SuscripcionRespuesta
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.schemas.celda import CeldaRespuesta
@@ -46,6 +46,7 @@ class EstadoVehiculoRespuesta(BaseModel):
     vehiculo: VehiculoRespuesta
     esta_dentro: bool
     estancia: EstanciaAbiertaRespuesta | None
+    suscripcion: SuscripcionRespuesta | None = None
 
 class VehiculoConEntradaCrear(BaseModel):
     model_config = ConfigDict(extra="forbid")

@@ -36,6 +36,15 @@ def list_all(
 ):
     return service.list_clients(session, offset, limit)
 
+@router.get("/identificacion/{identificacion}", response_model=ClienteRespuesta)
+def buscar_por_identificacion(
+    identificacion: str,
+    session: DatabaseSession,
+):
+    return service.get_client_by_identification(
+        session,
+        identificacion,
+    )
 
 @router.get("/{id}", response_model=ClienteDetalle)
 def get_one(id: ClientId, session: DatabaseSession):

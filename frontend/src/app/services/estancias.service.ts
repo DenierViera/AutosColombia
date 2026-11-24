@@ -41,6 +41,10 @@ export class EstanciasService {
       .pipe(timeout(15000));
   }
 
+  celda(id: number): Observable<Celda> {
+    return this.cells.get(id);
+  }
+
   operadores(): Observable<Operador[]> {
     return this.todas((offset) => this.operators.list(offset, 100));
   }

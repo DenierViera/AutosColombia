@@ -44,3 +44,4 @@ class CeldasPagina(BaseModel):
     limit: int
     disponibles: int
     ocupadas: int
+    reservadas: int

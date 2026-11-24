@@ -1,0 +1,562 @@
+<div class="pagos-container">
+
+  <header class="pagos-header">
+    <div>
+      <h1>Gestión de pagos</h1>
+      <p>Administra planes, contrataciones y suscripciones del parqueadero.</p>
+    </div>
+  </header>
+
+  <nav class="pagos-tabs">
+    <button
+      type="button"
+      [class.active]="vista === 'planes'"
+      (click)="vista = 'planes'">
+      Planes
+    </button>
+
+    <button
+      type="button"
+      [class.active]="vista === 'contrataciones'"
+      (click)="vista = 'contrataciones'">
+      Contrataciones
+    </button>
+
+    <button
+      type="button"
+      [class.active]="vista === 'suscripciones'"
+      (click)="vista = 'suscripciones'">
+      Suscripciones
+    </button>
+
+    <button
+      type="button"
+      [class.active]="vista === 'historial'"
+      (click)="vista = 'historial'">
+      Historial de pagos
+    </button>
+  </nav>
+
+  <section class="pagos-content">
+
+    @if (vista === 'planes') {
+      <div class="seccion-header">
+        <div>
+          <h2>Planes de parqueadero</h2>
+          <p>Configura los servicios y sus precios.</p>
+        </div>
+
+        <button
+          type="button"
+          class="btn-primary"
+          (click)="abrirFormularioPlan()"
+        >
+          + Crear plan
+        </button>
+      </div>
+
+      @if (error) {
+        <div class="mensaje-error">
+          {{ error }}
+        </div>
+      }
+
+      @if (mensaje) {
+        <div class="mensaje-exito">
+          {{ mensaje }}
+        </div>
+      }
+
+      @if (mostrarFormularioPlan) {
+        <div class="formulario-plan">
+          <h3>Crear nuevo plan</h3>
+
+          <div class="form-grid">
+            <div class="campo">
+              <label>Nombre del plan</label>
+              <input
+                type="text"
+                name="nombrePlan"
+                [(ngModel)]="nuevoPlan.nombre"
+                placeholder="Ej. Mensual"
+              >
+            </div>
+
+            <div class="campo">
+              <label>Precio</label>
+              <input
+                type="number"
+                name="precioPlan"
+                [(ngModel)]="nuevoPlan.precio"
+                min="1"
+              >
+            </div>
+
+            <div class="campo">
+              <label>Duración en días</label>
+              <input
+                type="number"
+                name="duracionPlan"
+                [(ngModel)]="nuevoPlan.duracion_dias"
+                min="1"
+              >
+            </div>
+
+            <div class="campo campo-completo">
+              <label>Descripción</label>
+              <textarea
+                name="descripcionPlan"
+                [(ngModel)]="nuevoPlan.descripcion"
+                placeholder="Descripción del servicio"
+              ></textarea>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button
+              type="button"
+              class="btn-secondary"
+              (click)="mostrarFormularioPlan = false"
+            >
+              Cancelar
+            </button>
+
+            <button
+              type="button"
+              class="btn-primary"
+              (click)="crearPlan()"
+              [disabled]="guardandoPlan"
+            >
+              {{ guardandoPlan ? 'Guardando...' : 'Guardar plan' }}
+            </button>
+          </div>
+        </div>
+      }
+
+      @if (cargandoPlanes) {
+        <p>Cargando planes...</p>
+      } @else {
+        <div class="tabla-contenedor">
+          <table class="tabla-planes">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Precio</th>
+                <th>Duración</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              @for (plan of planes; track plan.id) {
+                <tr>
+                  <td>{{ plan.nombre }}</td>
+                  <td>{{ plan.precio | currency:'COP':'symbol-narrow':'1.0-0' }}</td>
+                  <td>{{ plan.duracion_dias }} días</td>
+                  <td>{{ plan.activo ? 'Activo' : 'Inactivo' }}</td>
+                  <td>
+                    @if (plan.activo) {
+                      <button
+                        type="button"
+                        class="btn-danger"
+                        (click)="desactivarPlan(plan)"
+                      >
+                        Desactivar
+                      </button>
+                    }
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="5">Todavía no hay planes registrados.</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    }
+
+    @if (vista === 'contrataciones') {
+      <div class="seccion-header">
+        <div>
+          <h2>Nueva contratación</h2>
+          <p>Registra un propietario y contrata un servicio.</p>
+        </div>
+      </div>
+
+      @if (error) {
+        <div class="mensaje-error">{{ error }}</div>
+      }
+
+      @if (mensaje) {
+        <div class="mensaje-exito">{{ mensaje }}</div>
+      }
+
+      <div class="formulario-plan">
+
+        <h3>1. Buscar propietario</h3>
+
+        <div class="busqueda-propietario">
+          <div class="campo">
+            <label>Identificación del propietario</label>
+            <input
+              type="text"
+              name="identificacion"
+              [(ngModel)]="identificacion"
+              placeholder="Ingrese el número de cédula"
+            >
+          </div>
+
+          <button
+            type="button"
+            class="btn-primary"
+            (click)="buscarPropietario()"
+            [disabled]="buscandoPropietario">
+            {{ buscandoPropietario ? 'Buscando...' : 'Buscar propietario' }}
+          </button>
+        </div>
+
+        @if (propietario) {
+          <div class="propietario-encontrado">
+            <h4>Propietario encontrado</h4>
+            <p><strong>Nombre:</strong> {{ propietario.nombre_completo }}</p>
+            <p><strong>Identificación:</strong> {{ propietario.identificacion }}</p>
+            <p><strong>Teléfono:</strong> {{ propietario.telefono || 'No registrado' }}</p>
+          </div>
+        }
+
+        <div class="divider-form"></div>
+
+        <h3>2. Seleccionar servicio</h3>
+
+        <div class="form-grid">
+
+          <div class="campo">
+            <label>Plan de parqueadero</label>
+            <select
+              name="plan"
+              [(ngModel)]="planSeleccionado">
+
+              <option [ngValue]="null">Selecciona un plan</option>
+
+              @for (plan of planesDisponibles; track plan.id) {
+                <option [ngValue]="plan.id">
+                  {{ plan.nombre }} -
+                  {{ plan.precio | currency:'COP':'symbol-narrow':'1.0-0' }}
+                  ({{ plan.duracion_dias }} días)
+                </option>
+              }
+            </select>
+          </div>
+
+          <div class="campo">
+            <label>Celda disponible</label>
+            <select
+              name="celda"
+              [(ngModel)]="celdaSeleccionada">
+
+              <option [ngValue]="null">Selecciona una celda</option>
+
+              @for (celda of celdasDisponibles; track celda.id) {
+                <option [ngValue]="celda.id">
+                  {{ celda.codigo }} - {{ celda.tipo }}
+                </option>
+              }
+            </select>
+          </div>
+
+        </div>
+
+        <div class="divider-form"></div>
+
+        <h3>3. Registrar pago</h3>
+
+        <div class="form-grid">
+
+          <div class="campo">
+            <label>Método de pago</label>
+            <select name="metodoPago" [(ngModel)]="metodoPago">
+              <option value="EFECTIVO">Efectivo</option>
+              <option value="TRANSFERENCIA">Transferencia</option>
+              <option value="NEQUI">Nequi</option>
+              <option value="DAVIPLATA">Daviplata</option>
+              <option value="OTRO">Otro</option>
+            </select>
+          </div>
+
+          <div class="campo">
+            <label>Referencia del pago (opcional)</label>
+            <input
+              type="text"
+              name="referenciaPago"
+              [(ngModel)]="referenciaPago"
+              placeholder="Número de comprobante o referencia"
+            >
+          </div>
+
+        </div>
+
+        @if (planSeleccionado) {
+          @for (plan of planesDisponibles; track plan.id) {
+            @if (plan.id === planSeleccionado) {
+              <div class="resumen-contratacion">
+                <span>Total a recibir</span>
+                <strong>
+                  {{ plan.precio | currency:'COP':'symbol-narrow':'1.0-0' }}
+                </strong>
+              </div>
+            }
+          }
+        }
+
+        <div class="form-actions">
+          <button
+            type="button"
+            class="btn-primary"
+            (click)="contratar()"
+            [disabled]="guardandoContratacion || !propietario">
+            {{ guardandoContratacion ? 'Registrando...' : 'Registrar contratación y pago' }}
+          </button>
+        </div>
+
+      </div>
+    }
+
+    @if (vista === 'suscripciones') {
+      <div class="seccion-header">
+        <div>
+          <h2>Suscripciones</h2>
+          <p>Consulta y administra las suscripciones de cada propietario.</p>
+        </div>
+      </div>
+
+      @if (error) {
+        <div class="mensaje-error">{{ error }}</div>
+      }
+
+      @if (mensaje) {
+        <div class="mensaje-exito">{{ mensaje }}</div>
+      }
+
+      <div class="formulario-plan">
+        <h3>Buscar propietario</h3>
+
+        <div class="busqueda-propietario">
+          <div class="campo">
+            <label>Identificación</label>
+            <input
+              type="text"
+              name="identificacionSuscripcion"
+              [(ngModel)]="identificacionSuscripcion"
+              placeholder="Número de cédula"
+            >
+          </div>
+
+          <button
+            type="button"
+            class="btn-primary"
+            (click)="buscarSuscripciones()"
+            [disabled]="buscandoSuscripciones">
+            {{ buscandoSuscripciones ? 'Buscando...' : 'Consultar' }}
+          </button>
+        </div>
+      </div>
+
+      @if (buscandoSuscripciones) {
+        <div class="empty-state">Consultando suscripciones...</div>
+      } @else if (identificacionSuscripcion && suscripciones.length === 0) {
+        <div class="empty-state">
+          No se encontraron suscripciones para este propietario.
+        </div>
+      } @else if (suscripciones.length > 0) {
+        <div class="tabla-contenedor">
+          <table class="tabla-planes">
+            <thead>
+              <tr>
+                <th>Suscripción</th>
+                <th>Plan</th>
+                <th>Celda</th>
+                <th>Inicio</th>
+                <th>Vencimiento</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              @for (suscripcion of suscripciones; track suscripcion.id) {
+                <tr>
+                  <td>#{{ suscripcion.id }}</td>
+
+                  <td>
+                    {{ nombrePlan(suscripcion.plan_id) }}
+                  </td>
+
+                  <td>#{{ suscripcion.celda_id }}</td>
+
+                  <td>{{ suscripcion.fecha_inicio | date:'dd/MM/yyyy' }}</td>
+
+                  <td>{{ suscripcion.fecha_fin | date:'dd/MM/yyyy' }}</td>
+
+                  <td>
+                    <span
+                      [class.estado-activo]="suscripcion.estado === 'ACTIVA'"
+                      [class.estado-inactivo]="suscripcion.estado !== 'ACTIVA'">
+                      {{ suscripcion.estado }}
+                    </span>
+                  </td>
+
+                  <td>
+                    @if (suscripcion.estado !== 'CANCELADA') {
+                      <button
+                        type="button"
+                        class="btn-secondary"
+                        (click)="prepararRenovacion(suscripcion)">
+                        Renovar
+                      </button>
+
+                      <button
+                        type="button"
+                        class="btn-danger"
+                        (click)="cancelarSuscripcion(suscripcion)">
+                        Cancelar
+                      </button>
+                    }
+                  </td>
+                </tr>
+
+                @if (suscripcionRenovar === suscripcion.id) {
+                  <tr>
+                    <td colspan="7">
+                      <div class="formulario-renovacion">
+                        <h3>Renovar suscripción #{{ suscripcion.id }}</h3>
+
+                        <div class="form-grid">
+                          <div class="campo">
+                            <label>Nuevo plan</label>
+                            <select
+                              name="planRenovacion"
+                              [(ngModel)]="planRenovacion">
+                              @for (plan of planesDisponibles; track plan.id) {
+                                <option [ngValue]="plan.id">
+                                  {{ plan.nombre }} -
+                                  {{ plan.precio | currency:'COP':'symbol-narrow':'1.0-0' }}
+                                </option>
+                              }
+                            </select>
+                          </div>
+
+                          <div class="campo">
+                            <label>Método de pago</label>
+                            <select
+                              name="metodoPagoRenovacion"
+                              [(ngModel)]="metodoPagoRenovacion">
+                              <option value="EFECTIVO">Efectivo</option>
+                              <option value="TRANSFERENCIA">Transferencia</option>
+                              <option value="NEQUI">Nequi</option>
+                              <option value="DAVIPLATA">Daviplata</option>
+                              <option value="OTRO">Otro</option>
+                            </select>
+                          </div>
+
+                          <div class="campo campo-completo">
+                            <label>Referencia del pago</label>
+                            <input
+                              type="text"
+                              name="referenciaRenovacion"
+                              [(ngModel)]="referenciaRenovacion"
+                              placeholder="Referencia opcional"
+                            >
+                          </div>
+                        </div>
+
+                        <div class="form-actions">
+                          <button
+                            type="button"
+                            class="btn-secondary"
+                            (click)="suscripcionRenovar = null">
+                            Cerrar
+                          </button>
+
+                          <button
+                            type="button"
+                            class="btn-primary"
+                            (click)="renovarSuscripcion()"
+                            [disabled]="guardandoRenovacion">
+                            {{ guardandoRenovacion ? 'Procesando...' : 'Confirmar renovación y pago' }}
+                          </button>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                }
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    }
+
+@if (vista === 'historial') {
+  <section class="seccion">
+    <div class="encabezado-seccion">
+      <div>
+        <h2>Historial de pagos</h2>
+        <p>Consulta todos los pagos registrados en el sistema.</p>
+      </div>
+
+      <button
+        type="button"
+        class="btn-secundario"
+        (click)="cargarPagos()"
+        [disabled]="cargandoPagos"
+      >
+        Actualizar
+      </button>
+    </div>
+
+      @if (error) {
+        <div class="mensaje-error">
+          {{ error }}
+        </div>
+      }
+      
+    @if (cargandoPagos) {
+      <p>Cargando pagos...</p>
+    } @else {
+      <div class="tabla-contenedor">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Suscripción</th>
+              <th>Valor</th>
+              <th>Fecha</th>
+              <th>Método de pago</th>
+              <th>Referencia</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            @for (pago of pagos; track pago.id) {
+              <tr>
+                <td>{{ pago.id }}</td>
+                <td>#{{ pago.suscripcion_id }}</td>
+                <td>{{ pago.valor | currency:'COP':'symbol-narrow':'1.0-0' }}</td>
+                <td>{{ pago.fecha_pago | date:'dd/MM/yyyy HH:mm' }}</td>
+                <td>{{ pago.metodo_pago }}</td>
+                <td>{{ pago.referencia || '—' }}</td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="6">No hay pagos registrados.</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+}

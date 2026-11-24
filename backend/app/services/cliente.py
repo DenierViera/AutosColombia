@@ -115,6 +115,32 @@ def list_clients(
 def get_client(session: Session, client_id: int) -> Cliente:
     return find_client(session, client_id)
 
+@database_operation
+def get_client_by_identification(
+    session: Session,
+    identificacion: str,
+) -> Cliente:
+    identificacion = identificacion.strip()
+
+    if not identificacion:
+        raise ClienteError(
+            422,
+            "La identificación es obligatoria.",
+        )
+
+    client = session.scalar(
+        select(Cliente).where(
+            Cliente.identificacion == identificacion
+        )
+    )
+
+    if client is None:
+        raise ClienteError(
+            404,
+            "No existe un cliente con esa identificación.",
+        )
+
+    return client
 
 @database_operation
 def update_client(

@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.models import Celda, Estancia
+from app.models import Celda, Estancia, Suscripcion, Pago
 from app.schemas.celda import CeldaActualizar, CeldaCrear
 
 
@@ -81,26 +81,46 @@ def list_cells(session: Session, offset: int, limit: int) -> dict:
 
     celdas_activas = Celda.eliminada.is_(False)
 
+    reservada = (
+        select(Suscripcion.id)
+        .where(
+            Suscripcion.celda_id == Celda.id,
+            Suscripcion.estado == "ACTIVA",
+            Suscripcion.fecha_inicio <= func.now(),
+            Suscripcion.fecha_fin > func.now(),
+            select(Pago.id)
+            .where(Pago.suscripcion_id == Suscripcion.id)
+            .exists(),
+        )
+        .exists()
+    )
+
     total = session.scalar(
         select(func.count())
         .select_from(Celda)
         .where(celdas_activas)
     ) or 0
 
-    disponibles = session.scalar(
+    ocupadas = session.scalar(
         select(func.count())
         .select_from(Celda)
-        .where(
-            celdas_activas,
-            ~ocupada,
-        )
+        .where(celdas_activas, ocupada)
     ) or 0
 
-    ocupadas = total - disponibles
+    reservadas = session.scalar(
+        select(func.count())
+        .select_from(Celda)
+        .where(celdas_activas, ~ocupada, reservada)
+    ) or 0
 
+    disponibles = total - ocupadas - reservadas
     items = list(
         session.execute(
-            select(Celda, ocupada.label("ocupada"))
+            select(
+                Celda,
+                ocupada.label("ocupada"),
+                reservada.label("reservada"),
+            )
             .where(celdas_activas)
             .order_by(Celda.id)
             .offset(offset)
@@ -113,9 +133,13 @@ def list_cells(session: Session, offset: int, limit: int) -> dict:
             "id": celda.id,
             "codigo": celda.codigo,
             "tipo": celda.tipo,
-            "estado": "Ocupada" if esta_ocupada else "Disponible",
+            "estado": (
+                "Ocupada" if esta_ocupada
+                else "Reservada" if esta_reservada
+                else "Disponible"
+            ),
         }
-        for celda, esta_ocupada in items
+        for celda, esta_ocupada, esta_reservada in items
     ]
 
     return {
@@ -125,17 +149,29 @@ def list_cells(session: Session, offset: int, limit: int) -> dict:
         "limit": limit,
         "disponibles": disponibles,
         "ocupadas": ocupadas,
+        "reservadas": reservadas,
     }
 
 
 @database_operation
 def list_available_cells(session: Session) -> list[Celda]:
-    """Devuelve únicamente celdas activas que no tienen una estancia abierta."""
+    """Devuelve celdas activas sin vehículos ni suscripciones vigentes."""
+
     ocupada = (
         select(Estancia.id)
         .where(
             Estancia.celda_id == Celda.id,
             Estancia.salida.is_(None),
+        )
+        .exists()
+    )
+
+    reservada = (
+        select(Suscripcion.id)
+        .where(
+            Suscripcion.celda_id == Celda.id,
+            Suscripcion.estado == "ACTIVA",
+            Suscripcion.fecha_fin > func.now(),
         )
         .exists()
     )
@@ -146,6 +182,7 @@ def list_available_cells(session: Session) -> list[Celda]:
             .where(
                 Celda.eliminada.is_(False),
                 ~ocupada,
+                ~reservada,
             )
             .order_by(Celda.codigo)
         )

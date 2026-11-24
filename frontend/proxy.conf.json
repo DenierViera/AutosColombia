@@ -23,5 +23,36 @@
     "secure": false,
     "changeOrigin": true
   }
+  ,
+  "/planes": {
+    "target": "http://127.0.0.1:8000",
+    "secure": false,
+    "changeOrigin": true
+  },
+  "/planes/**": {
+    "target": "http://127.0.0.1:8000",
+    "secure": false,
+    "changeOrigin": true
+  },
+  "/pagos": {
+    "target": "http://127.0.0.1:8000",
+    "secure": false,
+    "changeOrigin": true
+  },
+  "/pagos/**": {
+    "target": "http://127.0.0.1:8000",
+    "secure": false,
+    "changeOrigin": true
+  },
+  "/suscripciones": {
+    "target": "http://127.0.0.1:8000",
+    "secure": false,
+    "changeOrigin": true
+  },
+  "/suscripciones/**": {
+    "target": "http://127.0.0.1:8000",
+    "secure": false,
+    "changeOrigin": true
+  }
 }
 

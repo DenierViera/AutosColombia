@@ -396,3 +396,37 @@ thead th {
     animation: none;
   }
 }
+
+/* Modal de contratación de suscripción */
+.subscription-modal {
+  width: min(100%, 520px);
+}
+
+.subscription-modal h2 {
+  margin-bottom: 12px;
+  color: #111827;
+}
+
+.subscription-modal > p {
+  margin-bottom: 20px;
+}
+
+.subscription-modal .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.subscription-modal .form-group select {
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.subscription-modal .error-message {
+  padding: 12px;
+  border-radius: 8px;
+  background: #fff0ec;
+  color: #923b2e;
+  font-size: 13px;
+}

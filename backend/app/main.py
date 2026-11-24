@@ -17,6 +17,15 @@ from app.services.cliente import ClienteError
 from app.routers.auth import router as auth_router
 from app.services.auth import AuthError
 
+from app.routers.planes import router as planes_router
+from app.services.plan import PlanError
+
+from app.routers.suscripciones import router as suscripciones_router
+from app.services.suscripcion import SuscripcionError
+
+from app.routers.pagos import router as pagos_router
+from app.services.pago import PagoError
+
 app = FastAPI(title="Autos Colombia API")
 app.add_middleware(
     CORSMiddleware,
@@ -34,6 +43,9 @@ app.include_router(operadores_router)
 app.include_router(estancias_router)
 app.include_router(auth_router)
 app.include_router(clientes_router)
+app.include_router(planes_router)
+app.include_router(suscripciones_router)
+app.include_router(pagos_router)
 
 
 @app.exception_handler(VehiculoError)
@@ -57,6 +69,15 @@ async def auth_error_handler(request, error: AuthError) -> JSONResponse:
 
 @app.exception_handler(ClienteError)
 async def cliente_error_handler(request, error: ClienteError) -> JSONResponse:
+    return JSONResponse(
+        status_code=error.status_code,
+        content={"detail": error.detail},
+    )
+
+@app.exception_handler(PlanError)
+@app.exception_handler(SuscripcionError)
+@app.exception_handler(PagoError)
+async def payment_error_handler(request, error):
     return JSONResponse(
         status_code=error.status_code,
         content={"detail": error.detail},

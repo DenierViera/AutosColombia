@@ -1,18 +1,27 @@
 from datetime import datetime, timezone
 from functools import wraps
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, exists, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.models import Celda, Estancia, Operador, Vehiculo, required_text
+from app.models import (
+    Celda,
+    Estancia,
+    Operador,
+    Pago,
+    Plan,
+    Suscripcion,
+    Vehiculo,
+    required_text,
+)
 from app.schemas.celda import CeldaRespuesta
 from app.schemas.estancia import (
     EntradaCrear, SalidaCrear, EstanciaRespuesta, EstanciaAbiertaRespuesta,
     EstadoVehiculoRespuesta,
 )
 from app.schemas.vehiculo import VehiculoCrear, VehiculoRespuesta
-
+from app.schemas.suscripcion import SuscripcionRespuesta
 
 class EstanciaError(Exception):
     def __init__(self, status_code: int, detail: str) -> None:
@@ -63,6 +72,38 @@ class ServicioEstancia:
             raise EstanciaError(404, "Operador no encontrado.")
         return operador
 
+    def _suscripcion_disponible(self, vehiculo: Vehiculo) -> Suscripcion:
+        if vehiculo.cliente_id is None:
+            raise EstanciaError(
+                403,
+                "El vehículo no tiene un propietario asociado.",
+            )
+
+        ahora = datetime.now(timezone.utc)
+
+        suscripcion = self.session.scalars(
+            select(Suscripcion)
+            .where(
+                Suscripcion.cliente_id == vehiculo.cliente_id,
+                Suscripcion.estado == "ACTIVA",
+                Suscripcion.fecha_inicio <= ahora,
+                Suscripcion.fecha_fin > ahora,
+                exists().where(
+                    Pago.suscripcion_id == Suscripcion.id
+                ),
+            )
+            .order_by(Suscripcion.fecha_fin.asc())
+            .with_for_update()
+        ).first()
+
+        if suscripcion is None:
+            raise EstanciaError(
+                403,
+                "El propietario no tiene una suscripción pagada y vigente.",
+            )
+
+        return suscripcion
+    
     def _validar_compatibilidad(self, vehiculo: Vehiculo, celda: Celda) -> None:
         tipos_compatibles = {
             "MOTO": "Moto",
@@ -81,6 +122,15 @@ class ServicioEstancia:
     @transaccion
     def entrada(self, data: EntradaCrear) -> EstanciaRespuesta:
         vehiculo = self._vehiculo(data.placa)
+
+        suscripcion = self._suscripcion_disponible(vehiculo)
+
+        if data.celda_id != suscripcion.celda_id:
+            raise EstanciaError(
+                403,
+                "El vehículo debe ingresar en la celda asignada a su suscripción.",
+            )
+
         celda = self.session.scalar(
             select(Celda)
             .where(
@@ -125,6 +175,14 @@ class ServicioEstancia:
         vehiculo = Vehiculo(**vehiculo_data.model_dump())
         self.session.add(vehiculo)
         self.session.flush()
+
+        suscripcion = self._suscripcion_disponible(vehiculo)
+
+        if celda_id != suscripcion.celda_id:
+            raise EstanciaError(
+                403,
+                "El vehículo debe ingresar en la celda asignada a la suscripción.",
+            )
 
         celda = self.session.get(Celda, celda_id)
         if celda is None:
@@ -180,11 +238,28 @@ class ServicioEstancia:
         if row is None:
             raise EstanciaError(404, "Vehículo no encontrado.")
         vehiculo, estancia, celda = row
+        ahora = datetime.now(timezone.utc)
+
+        suscripcion = self.session.scalars(
+            select(Suscripcion)
+            .where(
+                Suscripcion.cliente_id == vehiculo.cliente_id,
+                Suscripcion.estado == "ACTIVA",
+                Suscripcion.fecha_inicio <= ahora,
+                Suscripcion.fecha_fin > ahora,
+                exists().where(Pago.suscripcion_id == Suscripcion.id),
+            )
+            .order_by(Suscripcion.fecha_fin.asc())
+        ).first()
         abierta = None
         if estancia is not None:
             abierta = EstanciaAbiertaRespuesta(
                 **EstanciaRespuesta.model_validate(estancia).model_dump(),
                 celda=CeldaRespuesta.model_validate(celda),
             )
-        return EstadoVehiculoRespuesta(vehiculo=VehiculoRespuesta.model_validate(vehiculo),
-                                       esta_dentro=estancia is not None, estancia=abierta)
+        return EstadoVehiculoRespuesta(
+            vehiculo=VehiculoRespuesta.model_validate(vehiculo),
+            esta_dentro=estancia is not None,
+            estancia=abierta,
+            suscripcion=SuscripcionRespuesta.model_validate(suscripcion) if suscripcion else None
+        )

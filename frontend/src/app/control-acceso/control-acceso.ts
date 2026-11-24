@@ -1,10 +1,12 @@
 import { HttpErrorResponse } from '@angular/common/http';
+import { CurrencyPipe } from '@angular/common';
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, ValidatorFn, Validators } from '@angular/forms';
 import { forkJoin } from 'rxjs';
 import { Celda } from '../models/celda';
 import { Operador } from '../models/operador';
+import { Plan } from '../models/pago';
 
 import { EstadoVehiculo } from '../models/estancia';
 import { ApiService } from '../services/api.service';
@@ -23,7 +25,7 @@ const placa = (value: string) => value.trim().toUpperCase();
 
 @Component({
   selector: 'app-control-acceso',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, CurrencyPipe],
   templateUrl: './control-acceso.html',
   styleUrl: './control-acceso.css',
 })
@@ -46,8 +48,11 @@ export class ControlAcceso {
 
   readonly tipoVehiculoEntrada = signal<TipoVehiculo | null>(null);
   readonly vehiculoEntradaRegistrado = signal<boolean | null>(null);
+  readonly suscripcionEntrada = signal<EstadoVehiculo['suscripcion']>(null);
+  readonly celdaSuscripcionEntrada = signal<Celda | null>(null);
   readonly vehiculoSinPropietario = signal<Vehiculo | null>(null);
   readonly mostrarModalPropietario = signal(false);
+  readonly propietarioContratacion = signal<Cliente | null>(null);
   readonly formularioPropietario = this.fb.group({
     cliente_id: this.fb.control<number | null>(null, Validators.required),
   });
@@ -66,14 +71,22 @@ readonly errorNuevoCliente = signal('');
 
   readonly celdasEntradaCompatibles = computed(() => {
     const tipo = this.tipoVehiculoEntrada();
+    const celdaPlan = this.celdaSuscripcionEntrada();
 
     if (!tipo) return [];
 
     const tipoCelda = tipo === 'MOTO' ? 'moto' : 'automovil';
 
-    return this.celdas().filter(
-      (celda) => String(celda.tipo).trim().toLowerCase() === tipoCelda
+    const compatibles = this.celdas().filter(
+      (celda) =>
+        String(celda.tipo).trim().toLowerCase() === tipoCelda
     );
+
+    if (celdaPlan && !compatibles.some((celda) => celda.id === celdaPlan.id)) {
+      return [...compatibles, celdaPlan];
+    }
+
+    return compatibles;
   });
 
   celdasCompatibles(): Celda[] {
@@ -110,6 +123,17 @@ readonly errorNuevoCliente = signal('');
   readonly celdas = signal<Celda[]>([]);
   readonly operadores = signal<Operador[]>([]);
   readonly clientes = signal<Cliente[]>([]);
+  readonly mostrarModalContratacion = signal(false);
+  readonly planesContratacion = signal<Plan[]>([]);
+  readonly celdasContratacion = signal<Celda[]>([]);
+
+  readonly planContratacion = signal<number | null>(null);
+  readonly celdaContratacion = signal<number | null>(null);
+  readonly metodoPagoContratacion = signal('EFECTIVO');
+  readonly referenciaContratacion = signal('');
+
+  readonly guardandoContratacion = signal(false);
+  readonly errorContratacion = signal('');
   readonly catalogLoading = signal(false);
   readonly catalogError = signal('');
   readonly saving = signal(false);
@@ -131,6 +155,85 @@ readonly errorNuevoCliente = signal('');
         this.exitoSalida.set('');
       });
     this.cargarCatalogos();
+  }
+
+  abrirContratacion(cliente: Cliente): void {
+    this.propietarioContratacion.set(cliente);
+    this.errorContratacion.set('');
+    this.planContratacion.set(null);
+    this.celdaContratacion.set(null);
+    this.metodoPagoContratacion.set('EFECTIVO');
+    this.referenciaContratacion.set('');
+
+    this.vehiculosApi.listPlans().subscribe({
+      next: (respuesta) => {
+        this.planesContratacion.set(
+          respuesta.items.filter((plan) => plan.activo)
+        );
+
+        this.vehiculosApi.listAvailableCells().subscribe({
+          next: (celdas) => {
+            this.celdasContratacion.set(celdas);
+            this.mostrarModalContratacion.set(true);
+          },
+          error: (error: HttpErrorResponse) => {
+            this.errorContratacion.set(this.mensaje(error));
+          },
+        });
+      },
+      error: (error: HttpErrorResponse) => {
+        this.errorContratacion.set(this.mensaje(error));
+      },
+    });
+  }
+
+  contratarDesdeAcceso(): void {
+    const propietario = this.propietarioContratacion();
+    const planId = this.planContratacion();
+    const celdaId = this.celdaContratacion();
+
+    if (!propietario || planId === null || celdaId === null) {
+      this.errorContratacion.set('Selecciona un plan y una celda.');
+      return;
+    }
+
+    const plan = this.planesContratacion().find(
+      (item) => item.id === planId
+    );
+
+    if (!plan) {
+      this.errorContratacion.set('El plan seleccionado no está disponible.');
+      return;
+    }
+
+    this.guardandoContratacion.set(true);
+    this.errorContratacion.set('');
+
+    this.vehiculosApi.contractWithPayment({
+      identificacion: propietario.identificacion,
+      plan_id: plan.id,
+      celda_id: celdaId,
+      valor: plan.precio,
+      metodo_pago: this.metodoPagoContratacion(),
+      referencia: this.referenciaContratacion().trim() || null,
+    })
+      .pipe(takeUntilDestroyed(this.destroy))
+      .subscribe({
+        next: () => {
+          this.guardandoContratacion.set(false);
+          this.mostrarModalContratacion.set(false);
+
+          this.entrada.controls.celda_id.setValue(celdaId);
+
+          this.exitoEntrada.set('Contratación y pago registrados correctamente.');
+
+          this.registrarEntrada();
+        },
+        error: (error: HttpErrorResponse) => {
+          this.guardandoContratacion.set(false);
+          this.errorContratacion.set(this.mensaje(error));
+        },
+      });
   }
 
   cargarCatalogos(): void {
@@ -174,13 +277,14 @@ readonly errorNuevoCliente = signal('');
 
     this.tipoVehiculoEntrada.set(null);
     this.vehiculoEntradaRegistrado.set(null);
+    this.suscripcionEntrada.set(null);
+    this.celdaSuscripcionEntrada.set(null);
     this.entrada.controls.celda_id.reset();
     this.errorEntrada.set('');
 
     if (!value) return;
 
-    this.api
-      .consultar(value)
+    this.api.consultar(value)
       .pipe(takeUntilDestroyed(this.destroy))
       .subscribe({
         next: (result) => {
@@ -188,6 +292,24 @@ readonly errorNuevoCliente = signal('');
 
           this.vehiculoEntradaRegistrado.set(true);
           this.tipoVehiculoEntrada.set(result.vehiculo.tipo);
+          this.suscripcionEntrada.set(result.suscripcion);
+
+          if (result.suscripcion) {
+            this.api.celda(result.suscripcion.celda_id)
+              .pipe(takeUntilDestroyed(this.destroy))
+              .subscribe({
+                next: (celda) => {
+                  if (version !== this.versionIdentificacionEntrada) return;
+
+                  this.celdaSuscripcionEntrada.set(celda);
+                  this.entrada.controls.celda_id.setValue(celda.id);
+                },
+                error: (error) => {
+                  if (version !== this.versionIdentificacionEntrada) return;
+                  this.errorEntrada.set(this.mensaje(error));
+                },
+              });
+          }
         },
         error: (error) => {
           if (version !== this.versionIdentificacionEntrada) return;
@@ -250,8 +372,20 @@ readonly errorNuevoCliente = signal('');
                   `Entrada registrada: ${data.placa}, celda ${codigo}, ${this.fecha(result.entrada)}.`,
                 );
               },
-              error: (error) => {
+              error: (error: HttpErrorResponse) => {
                 this.saving.set(false);
+
+                if (error.status === 403 && result.vehiculo.cliente_id != null) {
+                  const cliente = this.clientes().find(
+                    (item) => item.id === result.vehiculo.cliente_id
+                  );
+
+                  if (cliente) {
+                    this.abrirContratacion(cliente);
+                    return;
+                  }
+                }
+
                 this.errorEntrada.set(this.mensaje(error));
               },
             });
@@ -354,7 +488,18 @@ readonly errorNuevoCliente = signal('');
           this.registrarNuevoPropietario.set(false);
           this.errorNuevoCliente.set('');
 
-          this.registrarEntrada();
+          const propietario = this.clientes().find(
+            (cliente) => cliente.id === cliente_id
+          );
+
+          if (propietario) {
+            this.entrada.controls.placa.setValue(vehiculo.placa);
+            this.abrirContratacion(propietario);
+          } else {
+            this.errorPropietario.set(
+              'El vehículo fue asociado, pero no se encontró el propietario.'
+            );
+          }
         },
         error: (error: HttpErrorResponse) => {
           this.saving.set(false);
@@ -407,7 +552,8 @@ readonly errorNuevoCliente = signal('');
                 this.errorPropietario.set('');
                 this.errorNuevoCliente.set('');
 
-                this.registrarEntrada();
+                this.entrada.controls.placa.setValue(vehiculo.placa);
+                this.abrirContratacion(nuevoCliente);
               },
               error: (error: HttpErrorResponse) => {
                 this.saving.set(false);
@@ -425,22 +571,20 @@ readonly errorNuevoCliente = signal('');
       });
   }
 
-cancelarAsociacionPropietario(): void {
-  if (this.saving()) return;
+  cancelarAsociacionPropietario(): void {
+    if (this.saving()) return;
 
-  this.mostrarModalPropietario.set(false);
-  this.vehiculoSinPropietario.set(null);
+    this.mostrarModalPropietario.set(false);
+    this.vehiculoSinPropietario.set(null);
 
-  this.formularioPropietario.reset();
-  this.formularioNuevoCliente.reset();
+    this.formularioPropietario.reset();
+    this.formularioNuevoCliente.reset();
 
-  this.registrarNuevoPropietario.set(false);
-
-  this.errorPropietario.set('');
-  this.errorNuevoCliente.set('');
-}
-
-
+    this.registrarNuevoPropietario.set(false);
+ 
+    this.errorPropietario.set('');
+    this.errorNuevoCliente.set('');
+  }
 
   registrarVehiculoYEntrada(): void {
     if (this.busy() || this.catalogLoading() || this.catalogError()) return;
@@ -518,46 +662,56 @@ cancelarAsociacionPropietario(): void {
   private registrarVehiculoConCliente(clienteId: number): void {
     const raw = this.formularioVehiculo.getRawValue();
 
-    const vehiculo: VehiculoConClienteCrear = {
+    const vehiculo = {
       placa: placa(raw.placa),
       marca: raw.marca.trim(),
       modelo: raw.modelo!,
       color: raw.color.trim(),
       tipo: raw.tipo as TipoVehiculo,
-      cliente_id: clienteId,
     };
 
-    const data = {
-      vehiculo,
-      celda_id: raw.celda_id!,
-      operador_id: raw.operador_id!,
-    };
+    const propietario = this.clientes().find(
+      (cliente) => cliente.id === clienteId
+    );
 
-    const codigo =
-      this.celdas().find((c) => c.id === data.celda_id)?.codigo ??
-      String(data.celda_id);
+    if (!propietario) {
+      this.saving.set(false);
+      this.errorRegistroVehiculo.set(
+        'No se encontró la información del propietario.'
+      );
+      return;
+    }
 
     this.vehiculosApi
-      .registrarVehiculoYEntrada(data)
+      .create(vehiculo)
       .pipe(takeUntilDestroyed(this.destroy))
       .subscribe({
-        next: (result) => {
-          this.saving.set(false);
-          this.mostrarModalVehiculo.set(false);
+        next: (nuevoVehiculo) => {
+          this.vehiculosApi
+            .update(nuevoVehiculo.id, { cliente_id: clienteId })
+            .pipe(takeUntilDestroyed(this.destroy))
+            .subscribe({
+              next: () => {
+                this.saving.set(false);
+                this.mostrarModalVehiculo.set(false);
+                this.formularioVehiculo.reset();
+                this.formularioNuevoCliente.reset();
+                this.registrarNuevoPropietario.set(false);
+                this.errorNuevoCliente.set('');
+                this.errorRegistroVehiculo.set('');
 
-          this.formularioVehiculo.reset();
-          this.formularioNuevoCliente.reset();
+                this.entrada.controls.placa.setValue(vehiculo.placa);
 
-          this.registrarNuevoPropietario.set(false);
-          this.errorNuevoCliente.set('');
-          this.errorRegistroVehiculo.set('');
-
-          this.exitoEntrada.set(
-            `Vehículo ${vehiculo.placa} registrado y entrada confirmada en la celda ${codigo}, ${this.fecha(result.entrada)}.`,
-          );
-
-          this.consulta.controls.placa.setValue(vehiculo.placa);
-          this.consultarVehiculoRegistrado(vehiculo.placa);
+                this.abrirContratacion(propietario);
+              },
+              error: (error: HttpErrorResponse) => {
+                this.saving.set(false);
+                this.errorRegistroVehiculo.set(
+                  'El vehículo fue registrado, pero no se pudo asociar al propietario: ' +
+                    this.mensaje(error)
+                );
+              },
+            });
         },
         error: (error: HttpErrorResponse) => {
           this.saving.set(false);
@@ -565,7 +719,6 @@ cancelarAsociacionPropietario(): void {
         },
       });
   }
-
 
   consultarVehiculoRegistrado(placaVehiculo: string): void {
     this.querying.set(true);

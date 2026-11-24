@@ -49,8 +49,12 @@
             </span>
           </div>
           <div class="field">
-            <label for="entry-cell">Celda</label
-            ><select id="entry-cell" formControlName="celda_id">
+            <label for="entry-cell">Celda</label>
+            <select
+              id="entry-cell"
+              formControlName="celda_id"
+              [disabled]="!!suscripcionEntrada()"
+            >
               <option [ngValue]="null">Selecciona una celda</option>
               @for (c of celdasEntradaCompatibles(); track c.id) {
                 <option [ngValue]="c.id">{{ c.codigo }} · {{ c.tipo }}</option>
@@ -626,5 +630,84 @@
     </div>
   }
 
+  @if (mostrarModalContratacion()) {
+    <div class="modal-overlay">
+      <section class="vehicle-modal subscription-modal">
+        <h2>Contratar suscripción</h2>
 
+        <p>
+          Propietario:
+          <strong>{{ propietarioContratacion()?.nombre_completo }}</strong>
+        </p>
+
+        <div class="form-group">
+          <label for="planContratacion">Plan</label>
+          <select
+            id="planContratacion"
+            [value]="planContratacion() ?? ''"
+            (change)="planContratacion.set(+$any($event.target).value)"
+          >
+            <option value="">Selecciona un plan</option>
+            @for (plan of planesContratacion(); track plan.id) {
+              <option [value]="plan.id">
+                {{ plan.nombre }} - {{ plan.precio | currency:'COP':'symbol':'1.0-0' }}
+                ({{ plan.duracion_dias }} días)
+              </option>
+            }
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="celdaContratacion">Celda disponible</label>
+          <select
+            id="celdaContratacion"
+            [value]="celdaContratacion() ?? ''"
+            (change)="celdaContratacion.set(+$any($event.target).value)"
+          >
+            <option value="">Selecciona una celda</option>
+            @for (celda of celdasContratacion(); track celda.id) {
+              <option [value]="celda.id">
+                {{ celda.codigo }}
+              </option>
+            }
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="metodoPagoContratacion">Método de pago</label>
+          <select
+            id="metodoPagoContratacion"
+            [value]="metodoPagoContratacion()"
+            (change)="metodoPagoContratacion.set($any($event.target).value)"
+          >
+            <option value="EFECTIVO">Efectivo</option>
+            <option value="TRANSFERENCIA">Transferencia</option>
+            <option value="TARJETA">Tarjeta</option>
+          </select>
+        </div>
+
+        @if (errorContratacion()) {
+          <p class="error-message">{{ errorContratacion() }}</p>
+        }
+
+        <div class="modal-actions">
+          <button
+            type="button"
+            (click)="mostrarModalContratacion.set(false)"
+            [disabled]="guardandoContratacion()"
+          >
+            Cancelar
+          </button>
+
+          <button
+            type="button"
+            (click)="contratarDesdeAcceso()"
+            [disabled]="guardandoContratacion()"
+          >
+            {{ guardandoContratacion() ? 'Procesando...' : 'Contratar y registrar entrada' }}
+          </button>
+        </div>
+      </section>
+    </div>
+  }
 </section>

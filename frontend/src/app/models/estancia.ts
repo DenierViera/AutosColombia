@@ -23,4 +23,13 @@ export interface EstadoVehiculo {
   vehiculo: Vehiculo;
   esta_dentro: boolean;
   estancia: (Estancia & { celda: Celda }) | null;
+  suscripcion: {
+    id: number;
+    cliente_id: number;
+    plan_id: number;
+    celda_id: number;
+    fecha_inicio: string;
+    fecha_fin: string;
+    estado: string;
+  } | null;
 }
